@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+packages/mcp/dist/
+
+# Raw probe outputs are large and may contain API echoes — only summaries
+# (per-probe markdown) and the human-readable REPORT are committed.
+reports/raw/**/*.jsonl
+reports/raw/**/*.json
+!reports/raw/.gitkeep
+!reports/raw/README.md
+
+# Editor
+.idea/
+.vscode/

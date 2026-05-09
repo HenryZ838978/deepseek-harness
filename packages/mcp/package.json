@@ -1,0 +1,47 @@
+{
+  "name": "@deepseek-harness/mcp",
+  "version": "0.2.0",
+  "description": "MCP server exposing DeepSeek V4-Pro / V4-Flash with all 10 protocol guards on. Drop into Claude Desktop / Cursor / Cline / ChatWise / Cherry Studio.",
+  "license": "MIT",
+  "author": "Henry Zhang",
+  "type": "module",
+  "bin": {
+    "deepseek-harness-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "openai": "^4.77.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "keywords": [
+    "mcp",
+    "deepseek",
+    "claude-desktop",
+    "cursor",
+    "agent",
+    "tool"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HenryZ838978/deepseek-harness"
+  },
+  "homepage": "https://github.com/HenryZ838978/deepseek-harness/tree/main/packages/mcp"
+}

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deepseek-harness-cli"
+version = "0.2.0"
+description = "Command-line companion to deepseek-harness. `dsh chat`, `dsh probe`, `dsh validate`, `dsh doctor`."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Henry Zhang" }]
+dependencies = [
+    "deepseek-harness>=0.2.0",
+    "rich>=13.7.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+dsh = "deepseek_harness_cli.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/HenryZ838978/deepseek-harness"
+
+[tool.setuptools.packages.find]
+include = ["deepseek_harness_cli*"]
