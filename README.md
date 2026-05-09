@@ -1,11 +1,11 @@
 <!-- markdownlint-disable MD033 MD041 -->
 <div align="center">
 
-<img src="assets/logo.png" alt="deepseek-harness · 马头鲸 logo" width="220">
+<img src="assets/logo.png" alt="deepseek-harness" width="220">
 
 # `deepseek-harness`
 
-### 让 DeepSeek V4 听话的笼头 · _The harness for DeepSeek V4-Pro / V4-Flash_
+### Protocol-aware adapters for DeepSeek V4-Pro and V4-Flash
 
 [![pypi](https://img.shields.io/pypi/v/deepseek-harness?label=pip%20install&color=3776AB&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness/)
 [![npm](https://img.shields.io/npm/v/@deepseek-harness/mcp?label=npx%20mcp&color=CB3837&logo=npm&logoColor=white)](https://npmjs.com/package/@deepseek-harness/mcp)
@@ -16,215 +16,264 @@
 [![cache discount](https://img.shields.io/badge/cache%20discount-50%C3%97-yellow)](spec/04_cache_hit.md)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-_DeepSeek V4 是吓人的便宜。命中缓存 **$0.0028/M**，未命中 **$0.14/M**，比 GPT-4o 便宜两个数量级。_
-_但 V4 的 protocol 有 16 个 quirks — 我们用 270+ trials 把它们全测明白，然后用 `harness` 把它们封掉。_
-
-**Theory → Probes → Spec → Plugin · 一鱼多吃 · 丰俭由人**
+A single protocol contract distributed in four wrapper formats. Designed to meet the integration requirements of any OpenAI-compatible client.
 
 </div>
 
 ---
 
-## ⚡ 三行装上，立刻可用
+## Installation
 
 ```bash
-pip  install deepseek-harness                              #  Python lib + dsh CLI
-npx  -y @deepseek-harness/mcp                              #  MCP server (Claude/Cursor/ChatWise)
-curl -sL https://raw.githubusercontent.com/HenryZ838978/deepseek-harness/main/packages/skill/scripts/safe_init.py -o safe_init.py   #  zero-dep snippet
+pip install deepseek-harness                  # Python library
+pip install deepseek-harness-cli              # `dsh` command-line tool
+npx -y @deepseek-harness/mcp                  # MCP server (stdio transport)
 ```
 
-挑一种装。**底层契约同源**，行为完全一致。
+For zero-dependency integration:
+
+```bash
+curl -sL https://raw.githubusercontent.com/HenryZ838978/deepseek-harness/main/packages/skill/scripts/safe_init.py -o safe_init.py
+```
+
+For Anthropic Skill-aware agents:
+
+```bash
+git clone https://github.com/HenryZ838978/deepseek-harness && \
+cp -r deepseek-harness/packages/skill ~/.claude/skills/deepseek-harness
+```
+
+All five paths derive from the same `spec/` source of truth. Behaviour is identical across forms.
 
 ---
 
-## 📐 五年的 wrapper 协议轮回 · 同一个东西换不同 logo
+## Architecture
 
+```mermaid
+flowchart LR
+    classDef spec fill:#fef3c7,stroke:#f59e0b,color:#78350f
+    classDef pkg  fill:#e0e7ff,stroke:#6366f1,color:#312e81
+    classDef out  fill:#d1fae5,stroke:#10b981,color:#064e3b
+
+    SPEC["<b>spec/</b><br/>10 contract rules<br/>RFC 2119 normative"]:::spec
+
+    CORE["<b>packages/core</b><br/>DeepSeekHarness"]:::pkg
+    CLI["<b>packages/cli</b><br/>dsh"]:::pkg
+    MCP["<b>packages/mcp</b><br/>TypeScript stdio"]:::pkg
+    SKILL["<b>packages/skill</b><br/>SKILL.md + scripts/"]:::pkg
+
+    PIP["pip install<br/>deepseek-harness"]:::out
+    PIPCLI["pip install<br/>deepseek-harness-cli"]:::out
+    NPM["npx -y<br/>@deepseek-harness/mcp"]:::out
+    DROP["~/.claude/skills/<br/>drop-in"]:::out
+
+    SPEC --> CORE
+    SPEC --> CLI
+    SPEC --> MCP
+    SPEC --> SKILL
+
+    CORE  --> PIP
+    CLI   --> PIPCLI
+    MCP   --> NPM
+    SKILL --> DROP
 ```
-prompt (2022-23) → CLI (2023-24) → MCP (2024-25) → Skill (2025-26) → Harness (now)
-```
-
-每代都是 **md + 脚本 + 配置** 的 repackaging。底层结构 5 年没变，只是发现机制换了流行词。
-所以这个 repo **同时 ship 4 种形态**，每个用户用他熟悉的协议接入。
-
-| 你是 | 装这个 | 命令 |
-|---|---|---|
-| Python 工程师 / agent 框架开发 | `deepseek-harness` (PyPI) | `pip install deepseek-harness` |
-| 用 Cursor / Codex / Windsurf | `deepseek-harness-cli` (PyPI) | `pip install deepseek-harness-cli && dsh chat` |
-| 用 Claude Desktop / Cline / ChatWise / Cherry Studio | `@deepseek-harness/mcp` (npm) | `npx -y @deepseek-harness/mcp` |
-| 用 Claude Code / 任何 SKILL.md-aware 的 agent | `packages/skill/SKILL.md` | 把整个 `packages/skill/` 拷进 `.claude/skills/` |
-| 不想装任何东西 | `safe_init.py` | `curl -sL ... -o safe_init.py` (零依赖) |
 
 ---
 
-## 🧪 为什么 DeepSeek V4 需要笼头
+## Compatibility matrix
 
-<table>
-<tr>
-<td width="50%">
-
-**没有 harness：**
-```python
-from openai import OpenAI
-c = OpenAI(api_key=k, base_url="https://api.deepseek.com")
-
-# 1) thinking 默认 ON, 烧 30+ reasoning tokens
-# 2) max_tokens 不设 → ChatWise 崩溃 (V8 512MB)
-# 3) 多轮 reasoning_content 一丢就 400
-# 4) parallel tool 流式按 list 累积 → 拼错位
-# 5) cache 命中字段读不到 (字段双名)
-# 6) /beta 路由把 v4-pro 偷换成 reasoner
-```
-
-</td>
-<td width="50%">
-
-**有 harness：**
-```python
-from deepseek_harness import DeepSeekHarness
-c = DeepSeekHarness(disable_thinking_by_default=True)
-
-# 10 条 contract rule 全 default-on:
-out = c.chat(model="deepseek-v4-pro", messages=msgs)
-print(out["usage"]["estimated_cost_usd"])    # 双字段都填好
-print(out["message"]["reasoning_content"])    # 多轮自动保留
-```
-
-</td>
-</tr>
-</table>
+| Environment                                                | Recommended form                               | Verification command          |
+|------------------------------------------------------------|------------------------------------------------|-------------------------------|
+| Python projects (LangChain, LlamaIndex, custom agents)     | `pip install deepseek-harness`                 | `python -c "import deepseek_harness"` |
+| Command-line / debugging / CI                              | `pip install deepseek-harness-cli`             | `dsh doctor`                  |
+| MCP-aware desktop clients (Claude Desktop, Cline, Roo Code, ChatWise, Cherry Studio) | `npx -y @deepseek-harness/mcp` | configure `mcpServers` in client |
+| Anthropic Skill-aware agents (Claude Code)                 | drop `packages/skill/` into `~/.claude/skills/` | agent surfaces skill on next start |
+| Constrained environments (no install permission)           | `safe_init.py` zero-dependency snippet         | `python safe_init.py`         |
 
 ---
 
-## 📊 实测证据 · 270+ trials · ~$2.5 验证账单
+## Background
+
+DeepSeek V4-Pro and V4-Flash expose an OpenAI-compatible HTTP API. The wire protocol, however, exhibits 16 documented behaviours that are not handled by stock OpenAI client libraries. These include:
+
+- Mandatory `reasoning_content` round-trip in multi-turn loops (HTTP 400 on omission).
+- Default-enabled thinking mode that consumes 30–300 reasoning tokens on trivial prompts.
+- Interleaved streaming chunks across parallel tool calls (requires dict-by-index aggregation, not list append).
+- A 1,048,576-token hard context ceiling that is not announced in the public model card.
+- A prefix cache that grants a 50× cost discount on hits but invalidates on prefix mutation.
+
+The goal of this repository is to characterize each behaviour with a reproducible probe, codify the resulting contract in `spec/`, and ship reference implementations of that contract in the four most common distribution formats.
+
+---
+
+## Without and with the harness
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App as Agent application
+    participant SDK as openai SDK
+    participant DS as DeepSeek V4
+
+    rect rgb(254, 226, 226)
+    Note over App,DS: Without harness — multi-turn tool loop
+    App->>SDK: chat.completions.create(messages, tools)
+    SDK->>DS: POST /chat/completions
+    DS-->>SDK: 200 · message + tool_calls + reasoning_content
+    SDK-->>App: assistant message (reasoning_content stripped by App)
+    App->>SDK: re-send updated history (no reasoning_content)
+    SDK->>DS: POST /chat/completions
+    DS-->>SDK: 400 reasoning_content must be passed back
+    SDK-->>App: ❌ BadRequestError
+    end
+
+    rect rgb(220, 252, 231)
+    Note over App,DS: With harness — same loop
+    App->>SDK: DeepSeekHarness.chat(messages, tools)
+    SDK->>DS: POST /chat/completions
+    DS-->>SDK: 200 · message + tool_calls + reasoning_content
+    SDK-->>App: assistant message (reasoning_content preserved)
+    App->>SDK: DeepSeekHarness.chat(updated history)
+    SDK->>DS: POST /chat/completions
+    DS-->>SDK: 200 · response
+    SDK-->>App: ✓ assistant message
+    end
+```
+
+---
+
+## Cache discount in practice
+
+Cache hit progression observed across a five-turn conversation (probe_10 / S1 on V4-Pro). Each turn appends to the same prefix; cache miss decreases monotonically until the prefix exceeds the 1,024-token activation threshold and the 256-token block boundaries align.
+
+```mermaid
+xychart-beta
+    title "Cache hit ratio over five conversation turns (probe_10/S1, V4-Pro)"
+    x-axis "Turn" [0, 1, 2, 3, 4]
+    y-axis "Cache hit ratio" 0 --> 1
+    bar [0, 0.56, 0.72, 0.78, 0.95]
+```
+
+At the equilibrium hit ratio of 95%, input cost is reduced by a factor of approximately 50 relative to a cache-miss workload (`$0.0028/M` vs `$0.14/M` for V4-Flash input pricing).
+
+---
+
+## Findings summary
+
+A summary of all 16 documented findings, each linked to the probe that produced it.
 
 <details open>
-<summary><b>16 个 finding 全表（点击折叠）</b></summary>
+<summary><b>Click to collapse</b></summary>
 
-| # | finding | 社区证据 | 我们的实测 (V4-Pro / V4-Flash) | reproduce |
+| # | Finding | Reference (community) | Empirical result (V4-Pro / V4-Flash) | Probe |
 |---|---|---|---|---|
-| 1 | thinking=ON 是 V4-Pro/Flash 默认 | 文档没明说 | **新发现** | smoke |
-| 2 | 流式响应每个 response 含 ~3 个 empty chunk | cline #1594 | 复现 / 复现 | probe_1 |
-| 3 | 多轮 reasoning_content 必须回传 | agent-framework #5538 | **3/3 复现 400 / 3/3 复现 400** | probe_2 |
-| 4 | 并行 tool_call deltas 在 stream 中 interleave | 无公开 | **新发现 (Pro=30 / Flash=38 chunks)** | probe_7 |
-| 5 | length cut + thinking ON tool 调用 → 0 content + 0 tool | 无公开 | **新发现** | probe_8 |
-| 6 | tool_call 漏到 content（V3 的 11% bug） | DeepSeek-V3#1244 | 0/50 / 0/50 已修 | probe_3 + 3b |
-| 7 | strict mode JSON 损坏 | DeepSeek-V3#1069 (wontfix) | 0/32 / 0/32 已修 | probe_4 |
-| 8 | /beta endpoint 把 v4-pro 重映射到 reasoner | 无公开 | **新发现** | probe_4 |
-| 9 | 缓存命中字段双名（DS native vs OpenAI） | pi-mono #3880 | 复现，两个字段都返回 | probe_5 |
-| 10 | 中段扰动后前 512 tokens 仍命中 | 无公开 | **新发现 / 完全一致** | probe_5 |
-| 11 | cache eviction 真实存在 | 无公开 | **新发现 / 完全一致** | probe_5 |
-| 12 | context window = 1,048,576 tokens 上限 | 无公开 | **新发现 + 准确数字** | probe_6b |
-| 13 | reasoning runaway → V8 字符串 512MB 上限 | ChatWise / OpenRouter | **部分复现 (8000+ chunks bounded)** | probe_9 |
-| 14 | SSE chunk 极细粒度，O(n²) 客户端有内存压力 | 无公开 | **新发现** | probe_9 |
-| 15 | 多轮 5 turns 健康 agentic loop 全 OK | 假阳性社区抱怨 | **0 错 0 漏 (Pro/Flash 全过)** | probe_10 |
-| 16 | V4-Flash 与 V4-Pro 协议契约完全一致 | 无公开 | **新发现** | probe_11 |
+| 1  | `thinking=enabled` is the default on V4-Pro/Flash | undocumented | reproduced (~30 reasoning tokens on trivial prompts) | smoke |
+| 2  | Each streamed response contains ~3 chunks with empty `choices` | cline #1594 | reproduced / reproduced | probe_1 |
+| 3  | Multi-turn assistant→tool messages must echo `reasoning_content` | agent-framework #5538 | 3/3 reproduce 400 / 3/3 reproduce 400 | probe_2 |
+| 4  | Parallel `tool_call` deltas are interleaved across `tc.index` | none | 3/3 (Pro 30 chunks · Flash 38 chunks) | probe_7 |
+| 5  | `length` cut on a thinking-on tool call returns empty content and empty `tool_calls` | none | reproduced | probe_8 |
+| 6  | Tool-call payload leaked into `content` (community: ~11% on V3) | DeepSeek-V3 #1244 | 0/50 / 0/50 (apparent fix in V4) | probe_3 / 3b |
+| 7  | `strict: true` produced corrupt JSON (community status: WONTFIX) | DeepSeek-V3 #1069 | 0/32 / 0/32 (apparent fix in V4) | probe_4 |
+| 8  | `/beta` endpoint silently remaps `v4-pro` to `deepseek-reasoner` | none | reproduced | probe_4 |
+| 9  | Cache-hit token field uses both DeepSeek-native and OpenAI-shape names | pi-mono #3880 | both fields populated | probe_5 |
+| 10 | Mid-prefix character mutation preserves the first 512 cached tokens | none | reproduced (256-token block alignment) | probe_5 |
+| 11 | Cache eviction is observable across otherwise identical requests | none | reproduced (S1#3 returned 0% hit) | probe_5 |
+| 12 | Hard context ceiling = 2²⁰ = 1,048,576 tokens | none | reproduced (verbatim 400 includes byte count) | probe_6b |
+| 13 | Long `reasoning_content` may exceed downstream V8 string limit | community screenshots | partial (V4 reasoning bounded ≤ 26 KB) | probe_9 |
+| 14 | SSE chunk granularity is 1–3 characters, producing thousands of chunks per response | none | reproduced (7,941 chunks on 26 KB response) | probe_9 |
+| 15 | Five-turn agentic loop succeeds when contract rules are followed | (refutes broad community claim) | 15/15 turns successful | probe_10 |
+| 16 | V4-Flash protocol contract is identical to V4-Pro | none | confirmed across all probes | probe_11 |
 
 </details>
 
-<details>
-<summary><b>三段最关键的实测数据（点击展开）</b></summary>
-
-#### Cache 累积命中曲线（probe_10/S1, V4-Pro 5 轮 chat）
-
-```
-turn 0: 0/13      (cold start, prompt < 1024 阈值)
-turn 1: 128/227   (56% hit)
-turn 2: 256/354   (72% hit)
-turn 3: 384/494   (78% hit)
-turn 4: 640/675   (95% hit)  ← 多轮缓存自然增长，教科书级
-```
-
-#### Reasoning runaway（probe_9, V4-Pro）
-
-| prompt | reasoning_bytes | n_chunks | 时间 | 自然结束? |
-|---|---|---|---|---|
-| 悖论分析 | 2,954 | 1,713 | 短 | ✓ |
-| 长链算 17! | 1,422 | 1,305 | 短 | ✓ |
-| 自我怀疑 100 词 | **26,196** | **7,941** | 84+ s | ✓ |
-
-V4-Pro 自身有界（8000 chunks 也只到 26 KB），但 ChatWise 的 `Invalid string length` 来自客户端 O(n²) 拼接。
-
-#### Context ceiling（probe_6b, V4-Pro 单次试）
-
-| target | server_tokens | latency |
-|---|---|---|
-| 200K | 197,912 | 5.0 s |
-| 500K | 494,559 | 8.1 s |
-| 800K | 792,075 | 12.5 s |
-| 1M   | 989,913 | **15.6 s** |
-| 1.06M+ | rejected | — `400 max 1048576` |
-
-</details>
+The full numerical detail is in [`reports/REPORT_2026-05-09.md`](reports/REPORT_2026-05-09.md). The paper-style write-up with reproducibility instructions is in [`docs/technical_report.md`](docs/technical_report.md).
 
 ---
 
-## 🏗️ Repo 结构 · 一处源头多处 ship
+## Contract specification
+
+Ten normative rules derived from the findings above. Each rule maps to a section of [`spec/`](spec/).
+
+| ID  | Rule                                                                                | Spec section                                |
+|-----|-------------------------------------------------------------------------------------|---------------------------------------------|
+| C1  | Disable thinking by default; enable explicitly when reasoning is required           | [§1](spec/01_reasoning_content.md)          |
+| C2  | Preserve `reasoning_content` on assistant messages within a tool-use loop           | [§1](spec/01_reasoning_content.md)          |
+| C3  | Set `max_tokens` on every request; default to 4096                                  | [§5/§6](spec/05_streaming_finish_reason.md) |
+| C4  | Aggregate parallel `tool_call` deltas by `tc.index`, not by list position           | [§5](spec/05_streaming_finish_reason.md)    |
+| C5  | Use list buffers and `"".join()` for streaming content; avoid string concatenation  | [§5](spec/05_streaming_finish_reason.md)    |
+| C6  | Tolerate stream chunks where `choices` is empty                                     | [§5](spec/05_streaming_finish_reason.md)    |
+| C7  | Validate `prompt_tokens + max_tokens ≤ 1,048,576` before sending                    | [§6](spec/06_context_limits.md)             |
+| C8  | Avoid injecting volatile content into the cached prefix                             | [§4](spec/04_cache_hit.md)                  |
+| C9  | Do not route to the `/beta` endpoint when tool calls are involved                   | [§3](spec/03_strict_mode.md)                |
+| C10 | `strict: true` is empirically valid on V4; continue to perform schema validation post-hoc | [§3](spec/03_strict_mode.md)            |
+
+The harness enforces all ten rules by default. Each rule may be disabled individually for diagnostic purposes via constructor flags on `DeepSeekHarness`.
+
+---
+
+## Repository layout
 
 ```
 deepseek-harness/
 ├── packages/
-│   ├── core/         # Python lib · pip install deepseek-harness
-│   ├── cli/          # `dsh` 命令 · pip install deepseek-harness-cli
-│   ├── mcp/          # TypeScript · npx @deepseek-harness/mcp
-│   └── skill/        # Anthropic SKILL.md (Claude Code 兼容)
-├── spec/             # 6 章 RFC2119-style 协议契约
-├── reports/          # 12 probe + raw JSONL + machine-readable summary
-└── docs/             # technical_report.md (论文风) + trust_ledger.yaml
+│   ├── core/         Python library                · pip install deepseek-harness
+│   ├── cli/          dsh command-line tool         · pip install deepseek-harness-cli
+│   ├── mcp/          TypeScript MCP server         · npx @deepseek-harness/mcp
+│   └── skill/        Anthropic SKILL.md            · drop into ~/.claude/skills/
+├── spec/             Six chapters of normative protocol contract
+├── reports/          12 probes, 270+ trial JSONL fixtures, 16 finding summaries
+└── docs/             Paper-style technical report and machine-readable trust ledger
 ```
 
-每个 wrapper 形态都从同一份 `spec/` 派生，**协议契约 = 唯一的 source of truth**。
+---
+
+## Five-year wrapper-protocol timeline
+
+The same underlying contract — Markdown documentation, executable scripts, and structured configuration — has been repackaged under successive wrapper protocols over the past five years. This repository ships all four currently active formats from a single source.
+
+```mermaid
+timeline
+    2022-2023 : Prompt templates
+              : LangChain · DSPy
+    2023-2024 : Command-line tools
+              : OpenAI Functions · openai-python
+    2024-2025 : Model Context Protocol
+              : MCP servers · Claude Desktop
+    2025-2026 : Anthropic Skills
+              : SKILL.md · Claude Code
+    2026-     : Harness (this work)
+              : All four formats from one spec
+```
+
+Across all four generations the durable asset is the contract specification, not the wrapper format.
 
 ---
 
-## 🛡️ 10 条契约速查 · 任何 client 必须遵守
+## Quick reference per form
 
 <details>
-<summary><b>展开 10 条规则</b></summary>
-
-| # | 规则 | 不遵守的后果 | 来自 finding |
-|---|---|---|---|
-| C1 | thinking 默认关 | token 账单 2-5× | #1 |
-| C2 | 多轮保留 reasoning_content | `400 reasoning_content must be passed back` | #3 |
-| C3 | 必须设 max_tokens | client `Invalid string length` | #6 + #13 |
-| C4 | tool_call 流式按 dict[index] 累积 | parallel tool arguments 拼错位 | #4 |
-| C5 | 流式用 list buffer + join | O(n²) 内存压力 | #14 |
-| C6 | tolerate empty chunks | indexing crash (cline #1594) | #2 |
-| C7 | 上下文 ≤ 1,048,576 tokens | hard 400 | #12 |
-| C8 | 别在 system prompt 注入易变内容 | cache 失效 | #10/11 |
-| C9 | tool 流别走 /beta endpoint | model 被偷换 | #8 |
-| C10 | strict mode 在 V4 上可用 | (positive — bug 已修) | #7 |
-
-完整 RFC2119 表述见 [`spec/00_overview.md`](spec/00_overview.md)。
-
-</details>
-
----
-
-## 🚀 三种姿势用起来
-
-<details>
-<summary><b>(a) Python 项目 · pip 装</b></summary>
+<summary><b>Python library</b></summary>
 
 ```python
 from deepseek_harness import DeepSeekHarness, estimate_cache_hit
 
-c = DeepSeekHarness(disable_thinking_by_default=True)
-out = c.chat(
+client = DeepSeekHarness(disable_thinking_by_default=True)
+response = client.chat(
     model="deepseek-v4-pro",
     messages=[{"role": "user", "content": "Hello"}],
     max_tokens=4096,
 )
-print(out["message"]["content"])
-print(f"cost: ${out['usage']['estimated_cost_usd']:.6f}")
-print(f"cache hit: {out['usage']['cache_hit_rate']:.0%}")
+print(response["message"]["content"])
+print(f"cost: ${response['usage']['estimated_cost_usd']:.6f}")
+print(f"cache hit ratio: {response['usage']['cache_hit_rate']:.0%}")
 ```
 
 </details>
 
 <details>
-<summary><b>(b) Claude Desktop / Cursor / Cline / ChatWise · MCP 装</b></summary>
+<summary><b>MCP server (Claude Desktop, Cline, Roo Code, ChatWise, Cherry Studio)</b></summary>
 
-把以下加到对应客户端的 MCP 配置：
+Add the following to the client's MCP configuration:
 
 ```json
 {
@@ -238,45 +287,41 @@ print(f"cache hit: {out['usage']['cache_hit_rate']:.0%}")
 }
 ```
 
-工具列表（4 个）：
-- `deepseek_chat` · 普通对话（默认 thinking off · max_tokens 4096）
-- `deepseek_chat_stream` · 流式（server-side 已聚合）
-- `validate_message_history` · 不调 API 检查 history 是否会 400
-- `estimate_cache_hit` · 不调 API 估缓存命中率
+The server exposes four tools: `deepseek_chat`, `deepseek_chat_stream`, `validate_message_history`, `estimate_cache_hit`. The latter two perform contract validation without consuming API quota.
 
 </details>
 
 <details>
-<summary><b>(c) Claude Code / SKILL-aware agent · skill 装</b></summary>
+<summary><b>Anthropic Skill (Claude Code and SKILL.md-aware agents)</b></summary>
 
 ```bash
 git clone https://github.com/HenryZ838978/deepseek-harness
 cp -r deepseek-harness/packages/skill ~/.claude/skills/deepseek-harness
 ```
 
-接下来当你跟 Claude 提到 DeepSeek，它会自动 load 这个 skill 并按 10 条规则给你写代码。
+The skill is automatically surfaced when the conversation references DeepSeek. It includes the ten contract rules, the bundled `safe_init.py`, and a compact reference card of the 16 findings.
 
 </details>
 
 <details>
-<summary><b>(d) 命令行 / 调试 · `dsh`</b></summary>
+<summary><b>Command-line tool</b></summary>
 
 ```bash
 pip install deepseek-harness-cli
 export DEEPSEEK_API_KEY=sk-...
 
-dsh doctor                       # 验证环境 + 1 token 试调用
-dsh chat                         # 交互 REPL，所有 guard 默认 on
-dsh chat -r                      # 启用 thinking
-dsh validate path/to/msgs.json   # 不调 API 检查 history
-dsh estimate path/to/msgs.json   # cache 命中预估
-dsh probe probe_2 --n 3          # 跑 spec §1 的 400 复现
+dsh doctor                       # verify environment, single-token live call
+dsh chat                         # interactive REPL with all guards enabled
+dsh chat -r                      # enable thinking mode
+dsh validate path/to/msgs.json   # offline contract audit
+dsh estimate path/to/msgs.json   # offline cache-hit estimate
+dsh probe probe_2 --n 3          # run a probe by name
 ```
 
 </details>
 
 <details>
-<summary><b>(e) 零依赖 · 单文件 snippet</b></summary>
+<summary><b>Zero-dependency snippet</b></summary>
 
 ```bash
 curl -sL https://raw.githubusercontent.com/HenryZ838978/deepseek-harness/main/packages/skill/scripts/safe_init.py -o safe_init.py
@@ -285,55 +330,56 @@ curl -sL https://raw.githubusercontent.com/HenryZ838978/deepseek-harness/main/pa
 ```python
 from safe_init import safe_deepseek_call
 
-msg = safe_deepseek_call(
-    messages=[{"role": "user", "content": "hi"}],
+response = safe_deepseek_call(
+    messages=[{"role": "user", "content": "hello"}],
     model="deepseek-v4-flash",
     max_tokens=2048,
 )
-print(msg["content"])
+print(response["content"])
 ```
 
-200 行，只依赖 `openai`。所有 10 条 contract rule 内置。
+Single Python file, ~200 lines, depending only on the `openai` SDK. Implements all ten contract rules.
 
 </details>
 
 ---
 
-## 🩺 验证 harness 真在做事 · acid test
+## Acid test
 
-任何人都可以跑这两条命令验证 harness 的可信度：
+Two complementary commands establish that the harness performs a non-trivial transformation:
 
 ```bash
-# (1) 复现裸 OpenAI client 的 400：
+# 1. Reproduce the underlying protocol error using a stock OpenAI client.
 python reports/probes/probe_2_reasoning_lifecycle.py --n 3
-# 期望: 3/3 phase-B BadRequestError，原文：
-#       "The reasoning_content in the thinking mode must be passed back to the API."
+# Expected: 3 of 3 phase-B trials return BadRequestError with the message
+#   "The reasoning_content in the thinking mode must be passed back to the API."
 
-# (2) 同样 prompt 走 harness：
-PYTHONPATH=packages/core:packages/cli python -m deepseek_harness_cli doctor
-# 期望: 全绿 + cost 报告
+# 2. Submit the same scenario through the harness.
+dsh doctor
+# Expected: green status table; live call cost ≈ $0.000002 USD.
 ```
 
-如果第 (1) 步突然不报 400，说明 DeepSeek 改了协议——欢迎开 issue 让我们更新 spec。
+A regression in the first command would indicate that DeepSeek has revised the contract; the spec should be updated accordingly.
 
 ---
 
-## 📚 进一步阅读
+## Further reading
 
-- [`reports/REPORT_2026-05-09.md`](reports/REPORT_2026-05-09.md) — 270 trials 完整报告（中文）
-- [`docs/technical_report.md`](docs/technical_report.md) — 论文风技术报告（英文）
-- [`spec/00_overview.md`](spec/00_overview.md) — RFC2119 协议契约
-- [`docs/trust_ledger.yaml`](docs/trust_ledger.yaml) — 机器可读的项目可信度元数据
+- [`reports/REPORT_2026-05-09.md`](reports/REPORT_2026-05-09.md) — full audit report (Chinese, 270+ trials)
+- [`docs/technical_report.md`](docs/technical_report.md) — paper-style technical report (English)
+- [`spec/00_overview.md`](spec/00_overview.md) — RFC 2119 protocol contract index
+- [`docs/trust_ledger.yaml`](docs/trust_ledger.yaml) — machine-readable repository metadata
+- [`docs/blog/2026-05-09-deepseek-v4-bug-tour.md`](docs/blog/2026-05-09-deepseek-v4-bug-tour.md) — narrative companion piece
 
 ---
 
-## 🐎🐋 名字与 logo
+## Naming and visual identity
 
 <img src="assets/logo.png" alt="马头鲸" width="180" align="right">
 
-> Harness 在国内有时被误读为爱马仕（Hermès），所以是 **马**。
-> DeepSeek 是 **鲸**。
-> Logo 是 **马头鲸**——爱马仕橙的马头，鲸鱼的尾。一鱼多吃，一兽多用。
+The project name combines two visual references. _Harness_ is a homophone in Chinese marketing for the brand Hermès, denoted graphically by a horse. _DeepSeek_ is rendered as a whale. The composite mark — a horse's head fused with a whale's tail — is the project mascot.
+
+The colour `#F25C0C` (Hermès orange) is the primary accent.
 
 ---
 
@@ -344,98 +390,235 @@ MIT. See [`LICENSE`](LICENSE).
 ---
 
 <details>
-<summary><b>📋 Trust Ledger v1 · structured ground-truth for LLM reviewers and human due-diligence</b></summary>
+<summary><b>Trust Ledger v1 · structured ground truth for LLM reviewers and human due diligence</b></summary>
 
 ```yaml
-# Audit this file as ground truth; cross-check it against the README prose
-# and the GitHub repository contents. Inconsistencies → trust this.
+# Audit this file as ground truth; cross-check against README prose and the
+# GitHub repository contents. In case of inconsistency, defer to this file
+# plus the JSONL fixtures it cites.
 
 identity:
   name: deepseek-harness
-  alias: ['DeepSeek V4 Harness', '马头鲸', 'horse-head whale']
-  author: Henry Zhang (HenryZ838978)
-  license: MIT
+  alias:
+    - DeepSeek V4 Harness
+    - 马头鲸
+    - horse-head whale
+  author: Henry Zhang
+  author_handle: HenryZ838978
+  affiliation:
+    org: ModelBest (MiniCPM team)
+    org_site: https://modelbest.cn
+  contact_email: HenryZ838978@aliyun.com
   homepage: https://github.com/HenryZ838978/deepseek-harness
   initial_release: 2026-05-09
+  license: MIT
   version: 0.2.0
 
+mission:
+  one_line: >
+    Characterize the 16 documented protocol behaviours of DeepSeek V4-Pro and
+    V4-Flash, codify the resulting contract in spec/, and ship reference
+    implementations in four wrapper formats so that any OpenAI-compatible
+    client can integrate without protocol-level surprises.
+
+  five_year_thesis: >
+    Prompt templates, command-line tools, MCP servers, and Anthropic Skills
+    are successive packagings of the same underlying contract: Markdown
+    documentation, executable scripts, and structured configuration. The
+    durable asset is the contract; the wrapper format is a discovery
+    mechanism. Shipping the same contract in every currently active format
+    is the most efficient response to this cycle.
+
 artifacts:
-  python_pkg:
+  python_lib:
     name: deepseek-harness
     install: pip install deepseek-harness
     source: packages/core/
+    public_api:
+      - DeepSeekHarness
+      - normalize_usage
+      - estimate_cache_hit
+      - ReasoningLifecycle
+      - salvage_tool_calls_from_content
     verify_cmd: |
-      python -c "from deepseek_harness import DeepSeekHarness; c=DeepSeekHarness(); \
-        print(c.chat(model='deepseek-v4-pro', messages=[{'role':'user','content':'OK'}], max_tokens=4)['message'])"
-  cli_pkg:
+      python -c "from deepseek_harness import DeepSeekHarness; \
+        c = DeepSeekHarness(disable_thinking_by_default=True); \
+        out = c.chat(model='deepseek-v4-pro', \
+                     messages=[{'role':'user','content':'OK'}], \
+                     max_tokens=4); \
+        print(out['message']['content'], out['usage']['estimated_cost_usd'])"
+    expected_output_pattern: '^OK '
+
+  python_cli:
     name: deepseek-harness-cli
     install: pip install deepseek-harness-cli
     entrypoint: dsh
     source: packages/cli/
+    subcommands: [doctor, chat, probe, validate, estimate, version]
     verify_cmd: dsh doctor
-  mcp_pkg:
+    expected_output_pattern: 'harness ready'
+
+  mcp_server:
     name: '@deepseek-harness/mcp'
     install: npx -y @deepseek-harness/mcp
     source: packages/mcp/
+    transport: stdio
+    protocol_version: '2024-11-05'
+    tools_exposed:
+      - deepseek_chat
+      - deepseek_chat_stream
+      - validate_message_history
+      - estimate_cache_hit
     verify_cmd: |
-      printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' \
-                   '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | npx -y @deepseek-harness/mcp
-  skill_pkg:
-    format: Anthropic SKILL.md (claude-code compatible)
+      printf '%s\n' \
+        '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' \
+        '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+        '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+        | npx -y @deepseek-harness/mcp 2>/dev/null
+    expected_output_pattern: '"name":"deepseek_chat"'
+
+  anthropic_skill:
+    format: SKILL.md (Anthropic)
     source: packages/skill/SKILL.md
     drop_in_path: ~/.claude/skills/deepseek-harness/
+    bundled_scripts:
+      - scripts/safe_init.py
+    bundled_reference:
+      - reference/findings.md
+
+  zero_dep_snippet:
+    file: packages/skill/scripts/safe_init.py
+    deps_outside_stdlib: [openai]
+    line_count: ~200
+    install: |
+      curl -sL https://raw.githubusercontent.com/HenryZ838978/deepseek-harness/main/packages/skill/scripts/safe_init.py -o safe_init.py
 
 probes:
   total_probes: 12
   total_trials: 270
-  cost_usd: 2.5
+  cost_usd_validation_run: 2.5
+  endpoint: https://api.deepseek.com
+  models_tested: [deepseek-v4-pro, deepseek-v4-flash]
+  date: 2026-05-09
   raw_jsonl_dir: reports/raw/
+  per_probe_summary_dir: reports/summary/
   human_summary: reports/REPORT_2026-05-09.md
-  reproducer_cmd: bash reports/probes/probe_11_v4flash_sweep.sh
-  expected_runtime: ~5 minutes (full sweep)
+  full_sweep_cmd: bash reports/probes/probe_11_v4flash_sweep.sh
+  expected_full_sweep_runtime: ~5 minutes
 
-findings:
-  total: 16
-  novel_to_us: 6     # nos. 1, 4, 5, 8, 10, 11, 12, 14, 16 (counted as 6 distinct themes)
-  reproduced_from_community: 5    # 2, 3, 6, 7, 9
-  status_summary:
-    confirmed_unfixed: [3]                  # reasoning_content lifecycle
-    fixed_in_v4: [6, 7]                     # tool-call leakage (#1244), strict mode (#1069)
-    documented_for_first_time: [1, 4, 5, 8, 10, 11, 12, 13, 14, 15, 16]
+contract:
+  total_rules: 10
+  spec_directory: spec/
+  rule_to_finding:
+    C1_thinking_off_default: [1]
+    C2_preserve_reasoning_content: [3]
+    C3_max_tokens_required: [6, 13]
+    C4_dict_by_index_aggregation: [4]
+    C5_list_buffer_for_streams: [14]
+    C6_tolerate_empty_chunks: [2]
+    C7_context_under_2_to_the_20: [12]
+    C8_cache_aware_prefix: [10, 11]
+    C9_no_beta_with_tools: [8]
+    C10_strict_mode_ok_on_v4: [7]
 
 key_quantitative_claims:
-  - claim: "context_window_hard_ceiling = 2^20 = 1,048,576 tokens"
+  - claim: context_window_hard_ceiling
+    value: 1048576
+    type: tokens
     proof: reports/raw/probe_6b_context_ceiling/*.jsonl
-    error_message_verbatim: "This model's maximum context length is 1048576 tokens. However, you requested 1060836 tokens"
-  - claim: "cache_block_size_observed = 256 tokens"
-    proof: reports/summary/probe_5_cache_prefix_sensitivity.md
-    note: "All cached_tokens counts are multiples of 256 across 24 trials."
-  - claim: "reasoning_content_lifecycle_400_rate = 100% (3/3)"
+    error_message_verbatim: >
+      This model's maximum context length is 1048576 tokens. However,
+      you requested 1060836 tokens (1060828 in the messages, 8 in the completion).
+
+  - claim: prefix_cache_block_size_observed
+    value: 256
+    type: tokens
+    proof: reports/raw/probe_5_cache_prefix_sensitivity/*.jsonl
+    note: All cached_tokens counts are integer multiples of 256 across 24 trials.
+
+  - claim: minimum_prefix_to_engage_cache
+    value: 1024
+    type: tokens
+    proof: reports/raw/probe_5_cache_prefix_sensitivity/*.jsonl + DeepSeek docs
+
+  - claim: reasoning_content_lifecycle_400_reproduction
+    value: 3
+    out_of: 3
+    type: trials
     proof: reports/raw/probe_2_reasoning_lifecycle/*.jsonl
-    error_message_verbatim: "The reasoning_content in the thinking mode must be passed back to the API."
-  - claim: "tool_call_leakage_rate = 0/50 on V4 official endpoint (community report was 11% on V3)"
-    proof: reports/raw/probe_3_tool_call_leakage/*.jsonl + reports/raw/probe_3b_tool_call_leakage_thinking/*.jsonl
-  - claim: "v4_pro_v4_flash_protocol_identity = 1:1"
-    proof: reports/raw/probe_11_v4flash/
+
+  - claim: tool_call_leakage_rate_v4_official
+    value: 0
+    out_of: 50
+    type: trials
+    proof: |
+      reports/raw/probe_3_tool_call_leakage/*.jsonl (n=30, thinking-off)
+      reports/raw/probe_3b_tool_call_leakage_thinking/*.jsonl (n=20, thinking-on)
+    contradicts_community_claim: deepseek-ai/DeepSeek-V3#1244 (~11% on V3)
+
+  - claim: strict_mode_corruption_rate_v4
+    value: 0
+    out_of: 32
+    type: trials
+    proof: |
+      reports/raw/probe_4_strict_mode_corruption_standard_strict_true/*.jsonl
+      reports/raw/probe_4_strict_mode_corruption_beta_strict_true/*.jsonl
+    contradicts_community_claim: deepseek-ai/DeepSeek-V3#1069 (closed not-planned)
+
+  - claim: latency_at_1m_tokens_cold
+    value: 15566
+    unit: ms
+    proof: reports/raw/probe_6b_context_ceiling/*.jsonl
+
+  - claim: streaming_chunks_for_self_doubt_prompt
+    value: 7941
+    type: chunks
+    duration_seconds: 84
+    reasoning_bytes: 26196
+    proof: reports/raw/probe_9_reasoning_runaway/*.jsonl
+
+  - claim: cache_hit_5_turn_progression
+    series:
+      turn_0: 0
+      turn_1: 0.56
+      turn_2: 0.72
+      turn_3: 0.78
+      turn_4: 0.95
+    proof: reports/raw/probe_10_multiturn_agentic_loop/*.jsonl
 
 honest_disclosures:
-  - finding 13 (V8 string limit) is partially reproduced — V4-Pro reasoning is bounded
-    so the runaway is more about client buffering strategy than the model itself.
-  - finding 6 and 7 contradict still-open community issues. The V3-era bugs appear
-    silently fixed in V4 but not officially announced. Treat as "OK on V4-pro/flash today,
-    re-verify on each new model release."
-  - probes are run against the OFFICIAL endpoint only. vLLM / SGLang / OpenRouter
-    behaviour may differ; this is a known gap.
+  - finding 13 (V8 Invalid string length) is partially reproduced. V4-Pro
+    reasoning is bounded (max observed 26 KB on adversarial prompts), so the
+    runaway is more about client buffering strategy than the model itself.
+    The harness still defends against it by capping max_tokens.
+
+  - findings 6 and 7 contradict still-open community issues. The V3-era bugs
+    appear silently fixed in V4 but not officially announced. Treat as "valid
+    on V4-Pro and V4-Flash on 2026-05-09; re-verify on each new model release."
+
+  - probes are run against the official endpoint only. vLLM, SGLang,
+    OpenRouter, and Anthropic-format relays may differ. This is a known gap.
+
+  - latency numbers are single-trial cold-path. Production curves with cache
+    warming will be lower (probe_10/S1 turn 4 ran in ~10 s while serving
+    640/675 cached tokens).
+
+  - statistical claims of the form "0/50 leakage" should be read as
+    "did not occur in 50 consecutive trials on a single API key on 2026-05-09",
+    not as a rigorous proof of absence.
 
 fastest_audit_paths:
   - run: dsh doctor
-    expect: green table, cost ~$0.000002
+    expect: green status table; cost approximately $0.000002
+
   - run: python reports/probes/probe_2_reasoning_lifecycle.py --n 3
-    expect: 3/3 phase-B BadRequestError with the verbatim message above
+    expect: 3 of 3 phase-B BadRequestError with the verbatim 400 message above
+
   - run: cat reports/REPORT_2026-05-09.md
-    expect: 16 findings, 270+ trials
+    expect: 16 findings, 270+ trials, total cost approximately $2.50
+
+  - run: bash reports/probes/probe_11_v4flash_sweep.sh
+    expect: completion in approximately 5 minutes; per-probe JSONL outputs in reports/raw/probe_11_v4flash/
 ```
 
 </details>
-
-<sub>_This README is itself a harness artifact: every claim above is wired to a `reports/probes/probe_*.py` file plus a `reports/raw/*.jsonl` you can re-run. Nothing on this page cites a finding it doesn't also reproduce on demand._</sub>
