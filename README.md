@@ -22,12 +22,21 @@ A single protocol contract distributed in four wrapper formats. Designed to meet
 
 ---
 
+## Status
+
+| Form | Status | Distribution channel |
+|---|---|---|
+| Python library `deepseek-harness` | published `0.2.0` | https://pypi.org/project/deepseek-harness/ |
+| Command-line tool `deepseek-harness-cli` | published `0.2.0` | https://pypi.org/project/deepseek-harness-cli/ |
+| MCP server `@deepseek-harness/mcp` | source ready, npm publish pending | (see [`packages/mcp/`](packages/mcp/)) |
+| Anthropic Skill | source ready | (see [`packages/skill/SKILL.md`](packages/skill/SKILL.md)) |
+
 ## Installation
 
 ```bash
 pip install deepseek-harness                  # Python library
 pip install deepseek-harness-cli              # `dsh` command-line tool
-npx -y @deepseek-harness/mcp                  # MCP server (stdio transport)
+npx -y @deepseek-harness/mcp                  # MCP server (stdio transport, after npm publish)
 ```
 
 For zero-dependency integration:
