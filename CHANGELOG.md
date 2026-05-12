@@ -14,10 +14,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **`packages/cli`** — Command-line tool `deepseek-harness-cli` published to
   PyPI. Entrypoint `dsh` with subcommands `doctor`, `chat`, `probe`, `validate`,
   `estimate`, `version`.
-- **`packages/mcp`** — TypeScript MCP server `@deepseek-harness/mcp`, source
-  ready and `npm pack --dry-run` clean (npm publish pending).
-  Exposes four tools: `deepseek_chat`, `deepseek_chat_stream`,
-  `validate_message_history`, `estimate_cache_hit`.
+- **`packages/mcp`** — TypeScript MCP server `@deepseek-harness/mcp` published
+  to npm. Stdio transport, MCP protocol version `2024-11-05`. Exposes four
+  tools: `deepseek_chat`, `deepseek_chat_stream`, `validate_message_history`,
+  `estimate_cache_hit`.
 - **`packages/skill`** — Anthropic `SKILL.md` with bundled `safe_init.py`
   zero-dependency snippet and compact reference card.
 - **`spec/`** — Six chapters of RFC 2119 normative protocol contract.
@@ -39,6 +39,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - PyPI: <https://pypi.org/project/deepseek-harness/0.2.0/>
 - PyPI: <https://pypi.org/project/deepseek-harness-cli/0.2.0/>
+- npm: <https://www.npmjs.com/package/@deepseek-harness/mcp>
 - GitHub release: <https://github.com/HenryZ838978/deepseek-harness/releases/tag/v0.2.0>
 
 [0.2.0]: https://github.com/HenryZ838978/deepseek-harness/releases/tag/v0.2.0
