@@ -23,3 +23,23 @@ reports/raw/**/*.json
 # Editor
 .idea/
 .vscode/
+
+# Swift / SwiftPM build artifacts (packages/desktop)
+.build/
+.swiftpm/
+*.xcodeproj/xcuserdata/
+DerivedData/
+
+# macOS
+.DS_Store
+
+# Runtime data (server local dev)
+packages/server/data/
+/data/
+
+# Local secrets — never commit
+**/secrets.env
+**/.env.local
+*.pem
+*.key
+
