@@ -9,13 +9,18 @@
 
 ARG NODE_VERSION=22-alpine
 
+# Pull base images through DaoCloud's Docker Hub mirror — mdou's cloud builder
+# can't reach docker.io directly. (Override with --build-arg DOCKER_MIRROR=
+# docker.io for global docker daemons that hit Docker Hub fine.)
+ARG DOCKER_MIRROR=docker.m.daocloud.io/library
+
 # ---- stage 1: build ---------------------------------------------------------
-FROM node:${NODE_VERSION} AS build
+FROM ${DOCKER_MIRROR}/node:${NODE_VERSION} AS build
 
 WORKDIR /build
 
-# Use npmmirror by default for fast / reliable installs from mdou (Aliyun cloud).
-# Override with --build-arg NPM_REGISTRY=https://registry.npmjs.org for global.
+# Use npmmirror + Aliyun apk + pypi mirrors so installs work from mdou's
+# in-cloud builder. Override the *_MIRROR build args for global use.
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 RUN npm config set registry "${NPM_REGISTRY}"
 
@@ -32,7 +37,11 @@ COPY packages/server/bin ./bin
 COPY packages/skill ./skills/deepseek-harness
 
 # ---- stage 2: runtime -------------------------------------------------------
-FROM node:${NODE_VERSION}
+FROM ${DOCKER_MIRROR}/node:${NODE_VERSION}
+
+ARG DOCKER_MIRROR=docker.m.daocloud.io/library
+ARG APK_MIRROR=https://mirrors.aliyun.com/alpine
+ARG PYPI_INDEX=https://mirrors.aliyun.com/pypi/simple/
 
 # Pre-install the agent's typical Linux toolchain so the cloudagent loop can
 # write + run code without an apk / pip install storm on first request.
@@ -45,12 +54,17 @@ FROM node:${NODE_VERSION}
 # build-base / linux-headers / make are needed when uv/pip falls back to
 # building a wheel from source (numpy etc.). openssh-client lets the agent
 # clone private repos via ssh URLs.
-RUN apk add --no-cache \
+#
+# Switch apk + pip to Aliyun mirrors first so the layer doesn't time out
+# trying to reach dl-cdn.alpinelinux.org / pypi.org from the mdou builder.
+RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${APK_MIRROR}|g" /etc/apk/repositories \
+    && apk add --no-cache \
         git curl wget ca-certificates tini \
         ripgrep jq fd \
         python3 py3-pip \
         make build-base linux-headers \
         openssh-client bash less \
+    && python3 -m pip config set global.index-url "${PYPI_INDEX}" \
     && python3 -m pip install --no-cache-dir --upgrade --break-system-packages pip \
     && python3 -m pip install --no-cache-dir --break-system-packages \
         uv \

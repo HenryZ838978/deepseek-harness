@@ -28,9 +28,22 @@ in a representative chunk of what an agent typically reaches for:
 
 **Why no Homebrew?** The original brief said "homebrew、python 之类的需要用的都给他预装上". Homebrew is not portable to Alpine / musl libc — the formulae expect Linuxbrew on glibc — so it would balloon the image past 500 MB and add no value. The spirit of the request is "agent's typical toolchain ready to go", which the apk + uv + pip layer above satisfies. If a future task genuinely needs glibc Homebrew we should switch the base image to `node:22-bookworm-slim` and install Linuxbrew, not bolt brew onto Alpine.
 
+### Why Aliyun / DaoCloud mirrors in the Dockerfile
+
+The mdou cloud builder runs inside Aliyun and **cannot reach docker.io / pypi.org / dl-cdn.alpinelinux.org directly**. Three mirrors are wired in via build-args so the build still completes from the public Internet too:
+
+| stage | what | mirror | build-arg |
+|---|---|---|---|
+| `FROM …/node:22-alpine` | Docker Hub | `docker.m.daocloud.io/library` | `DOCKER_MIRROR` |
+| `apk add` | Alpine packages | `https://mirrors.aliyun.com/alpine` | `APK_MIRROR` |
+| `pip install` | PyPI | `https://mirrors.aliyun.com/pypi/simple/` | `PYPI_INDEX` |
+| `npm install` | npm | `https://registry.npmmirror.com` | `NPM_REGISTRY` |
+
+Override any of them with `docker build --build-arg DOCKER_MIRROR=docker.io …` when running outside Aliyun.
+
 ## One-time mdou setup (the steps you do in mdou web UI)
 
-1. Go to https://mdou.modelbest.co → 新建应用 → 中文名 "鲸伴云端 (server)" → 英文名 `dsh-cloudagent` → 域名前缀 `dsh-api` (final URL `https://dsh-api.mdou.modelbest.co`)
+1. Go to https://mdou.modelbest.co → 新建应用 → 中文名 "深求云端 (server)" → 英文名 `dsh-cloudagent` → 域名前缀 `dsh-api` (final URL `https://dsh-api.mdou.modelbest.co`)
 2. Note the **应用 ID** (a number, e.g. 123). You'll feed it back to Cursor.
 3. Add 端口 `7777` (协议 HTTP), enable "对外服务"
 4. 添加域名 → 选 `dsh-api` 前缀 → mdou auto-routes 7777
