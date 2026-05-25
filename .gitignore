@@ -57,3 +57,9 @@ packages/desktop/dist/*
 # deploy/mdou — never commit live deployment records (URLs, bearers, IDs)
 deploy/mdou/DEPLOYED.md
 
+
+# Root-level Dockerfile / .dockerignore symlinks added at deploy time so
+# mdou's build context autodetection finds them. The real files live at
+# deploy/mdou/. Do not commit these symlinks.
+/Dockerfile
+/.dockerignore
