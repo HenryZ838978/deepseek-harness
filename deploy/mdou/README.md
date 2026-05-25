@@ -9,20 +9,38 @@ A single container running `node bin/dsh-server.js`:
 - Listens on `:7777` (mdou maps to an external HTTPS endpoint via "添加域名")
 - `DSH_AUTH_MODE=bearer` (multi-tenant, JWT-gated)
 - `/data` is the PVC mount — per-user sessions, usage log, budget, workspace
-- `claude` (Anthropic Claude Code) and `git` / `curl` / `rg` / `python3` baked in
-- Image size ≈ 250 MB
+- `claude` (Anthropic Claude Code) baked in
+- Agent CLI toolchain pre-baked — see "Pre-installed agent toolchain" below
+- Image size targets < 500 MB
+
+### Pre-installed agent toolchain
+
+When the cloudagent loop writes + runs code we don't want it stuck behind a
+fresh `apk add` / `pip install` on every cold request. The Dockerfile bakes
+in a representative chunk of what an agent typically reaches for:
+
+| layer | items |
+|---|---|
+| OS (`apk`)   | `git curl wget ripgrep jq fd bash less openssh-client tini ca-certificates` |
+| build deps   | `make build-base linux-headers` (so `pip` can compile wheels from source if needed) |
+| python       | `python3 py3-pip` upgraded, plus `uv` (fast resolver) |
+| python libs  | `requests httpx anthropic openai pydantic pyyaml rich tqdm ipython` |
+
+**Why no Homebrew?** The original brief said "homebrew、python 之类的需要用的都给他预装上". Homebrew is not portable to Alpine / musl libc — the formulae expect Linuxbrew on glibc — so it would balloon the image past 500 MB and add no value. The spirit of the request is "agent's typical toolchain ready to go", which the apk + uv + pip layer above satisfies. If a future task genuinely needs glibc Homebrew we should switch the base image to `node:22-bookworm-slim` and install Linuxbrew, not bolt brew onto Alpine.
 
 ## One-time mdou setup (the steps you do in mdou web UI)
 
-1. Go to https://mdou.modelbest.co → 新建应用 → 中文名 "深求云端 (server)" → 英文名 `dsh-cloud-server` → 域名前缀 `dsh-api` (final URL `https://dsh-api.mdou.modelbest.co`)
+1. Go to https://mdou.modelbest.co → 新建应用 → 中文名 "深求云端 (server)" → 英文名 `dsh-cloudagent` → 域名前缀 `dsh-api` (final URL `https://dsh-api.mdou.modelbest.co`)
 2. Note the **应用 ID** (a number, e.g. 123). You'll feed it back to Cursor.
 3. Add 端口 `7777` (协议 HTTP), enable "对外服务"
 4. 添加域名 → 选 `dsh-api` 前缀 → mdou auto-routes 7777
 5. 添加环境变量:
    | name | value | secret? |
    |---|---|---|
-   | `ANTHROPIC_AUTH_TOKEN` | the DeepSeek API key | ✅ |
-   | `DSH_JWT_SECRET` | a long random string (`openssl rand -hex 32`) | ✅ |
+   | `DEEPSEEK_API_KEY` | DeepSeek API key (used by the buddy / agent loop) | ✅ |
+   | `ANTHROPIC_AUTH_TOKEN` | DeepSeek API key (claude-code reads this name) | ✅ |
+   | `DSH_BEARER_TOKEN` | a 64-char hex string (`openssl rand -hex 32`) | ✅ |
+   | `DSH_JWT_SECRET` | a 64-char hex string (`openssl rand -hex 32`) | ✅ |
    | `DSH_OTP_PROVIDER` | `aliyun` (later, when SMS is wired) or leave `mock` for now | |
    | `DSH_ALLOWED_ORIGINS` | `https://cloud.deepseek-harness.dev,https://dsh-api.mdou.modelbest.co` | |
 6. Add a **PVC** mounted at `/data` (≥ 10 GB; resize later)

@@ -1,10 +1,11 @@
 # dsh-server container — runs on mdou (Rainbond/Aliyun K8s) and any plain K8s
 # / docker-compose / docker run setup.
 #
-# Multi-stage so the final image stays under 250 MB:
+# Multi-stage so the final image stays well under 500 MB:
 #   stage 1: install npm deps + @anthropic-ai/claude-code into a clean prefix
-#   stage 2: copy /opt/app + node_modules into a slim node:alpine image,
-#            symlink claude into /usr/local/bin.
+#   stage 2: slim alpine runtime + agent toolchain (python/uv/git/rg/jq/...)
+#            so the agent can immediately exec real code on first request
+#            instead of suffering an apk/pip install storm.
 
 ARG NODE_VERSION=22-alpine
 
@@ -33,11 +34,34 @@ COPY packages/skill ./skills/deepseek-harness
 # ---- stage 2: runtime -------------------------------------------------------
 FROM node:${NODE_VERSION}
 
-# Tools the agent might shell out to (git, curl, ripgrep, jq, python3 for
-# tiny scripts). Keep this list intentionally small.
-RUN apk add --no-cache git curl ripgrep jq python3 ca-certificates tini && \
-    addgroup -g 1000 dsh && \
-    adduser  -u 1000 -G dsh -s /bin/sh -D dsh
+# Pre-install the agent's typical Linux toolchain so the cloudagent loop can
+# write + run code without an apk / pip install storm on first request.
+#
+# Note: the original spec called for "homebrew、python 之类的" preinstalled.
+# Homebrew literally does not run on Alpine/musl; the spirit of the request
+# ("agent's typical CLI toolchain pre-baked") is satisfied via apk + uv +
+# pip below. See deploy/mdou/README.md for the substitution rationale.
+#
+# build-base / linux-headers / make are needed when uv/pip falls back to
+# building a wheel from source (numpy etc.). openssh-client lets the agent
+# clone private repos via ssh URLs.
+RUN apk add --no-cache \
+        git curl wget ca-certificates tini \
+        ripgrep jq fd \
+        python3 py3-pip \
+        make build-base linux-headers \
+        openssh-client bash less \
+    && python3 -m pip install --no-cache-dir --upgrade --break-system-packages pip \
+    && python3 -m pip install --no-cache-dir --break-system-packages \
+        uv \
+        requests httpx \
+        anthropic openai \
+        pydantic pyyaml \
+        rich tqdm ipython \
+    && addgroup -g 1000 dsh \
+    && adduser  -u 1000 -G dsh -s /bin/bash -D dsh \
+    && mkdir -p /home/dsh /home/dsh/.cache /home/dsh/.local /workspace \
+    && chown -R dsh:dsh /home/dsh /workspace
 
 WORKDIR /opt/app
 COPY --from=build /build /opt/app
@@ -45,8 +69,12 @@ COPY --from=build /opt/claude-prefix /opt/claude-prefix
 RUN ln -s /opt/claude-prefix/bin/claude /usr/local/bin/claude && \
     mkdir -p /data && chown -R dsh:dsh /opt/app /data
 
-# Drop privileges. The runtime needs RW on /data (the PVC mount point).
+# Drop privileges. The runtime needs RW on /data (the PVC mount point) and
+# /workspace (scratch area the agent can write into).
 USER dsh
+
+ENV HOME=/home/dsh \
+    PATH=/home/dsh/.local/bin:/usr/local/bin:/usr/bin:/bin
 
 # Default env. The K8s deployment (or `docker run -e`) overrides what matters.
 ENV NODE_ENV=production \
