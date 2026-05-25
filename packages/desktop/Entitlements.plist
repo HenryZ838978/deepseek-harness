@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        Minimal Hardened Runtime entitlements for an ad-hoc-signed personal
+        build. We intentionally do NOT enable App Sandbox: the app needs
+        broad filesystem read access (FileIndex walks ~/Documents, ~/Downloads,
+        WeChat / Lark / WPS / DingTalk container directories) and shells out to
+        sysctl, vm_stat, pmset, osascript, etc.
+
+        The two relaxations below let us bundle an unsigned portable Node
+        runtime under Resources/runtime/ and spawn it as a child process:
+    -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <!--
+        Allow JIT in case the embedded Node runtime ever uses V8 JIT codegen
+        (it does for hot functions). Required because Hardened Runtime
+        otherwise blocks it.
+    -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+</dict>
+</plist>
