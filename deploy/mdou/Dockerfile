@@ -72,10 +72,11 @@ RUN sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${APK_MIRROR}|g" /etc/apk/re
         anthropic openai \
         pydantic pyyaml \
         rich tqdm ipython \
-    && addgroup -g 1000 dsh \
-    && adduser  -u 1000 -G dsh -s /bin/bash -D dsh \
+    && addgroup -g 1500 dsh \
+    && adduser  -u 1500 -G dsh -s /bin/bash -D dsh \
     && mkdir -p /home/dsh /home/dsh/.cache /home/dsh/.local /workspace \
     && chown -R dsh:dsh /home/dsh /workspace
+# (UID/GID 1500 — node:22-alpine ships a 'node' user already at UID/GID 1000.)
 
 WORKDIR /opt/app
 COPY --from=build /build /opt/app
