@@ -1,4 +1,4 @@
-# 深求小助手 · DeepSeek Harness (Mac desktop)
+# 鲸伴小助手 · DeepSeek Harness (Mac desktop)
 
 A SwiftUI menubar "super-buddy" that lives on a normal user's Mac. Not Claude
 Code with a GUI — a Chinese-speaking, non-technical assistant who already
@@ -26,7 +26,7 @@ The Mac app implements all six product requirements:
    ram_used_pct>85 → `内存吃紧`,
    battery_pct<20 (not charging) → `电量偏低`.
 2. **No workspace UI** — `Preferences.ensureBuddyWorkspace()` auto-creates
-   `~/Documents/深求小助手/`. The word "workspace" appears nowhere in the
+   `~/Documents/鲸伴小助手/`. The word "workspace" appears nowhere in the
    user-facing UI; Settings has no such option.
 3. **File pre-scan** — `FileIndex.swift` walks `~/Documents`, `~/Desktop`,
    `~/Downloads`, plus WeChat/Lark/WPS/DingTalk container dirs, every 5 min.

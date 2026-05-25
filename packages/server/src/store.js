@@ -163,11 +163,11 @@ export function isOverBudget(uid) {
 //
 // Buddy-mode design: non-technical users must never see the word "workspace".
 // On the local desktop (uid === "local") we silently map the default workspace
-// to ~/Documents/深求小助手/ — visible in Finder under the Chinese "文稿" folder,
+// to ~/Documents/鲸伴小助手/ — visible in Finder under the Chinese "文稿" folder,
 // next to all the user's other documents. Multi-tenant cloud uids keep the
 // hidden /data/<uid>/workspaces/<label>/ scheme.
 
-const LOCAL_DEFAULT_WS = join(homedir(), "Documents", "深求小助手");
+const LOCAL_DEFAULT_WS = join(homedir(), "Documents", "鲸伴小助手");
 
 export function workspaceDir(uid, label) {
   if (uid === "local" && (!label || label === "default")) {

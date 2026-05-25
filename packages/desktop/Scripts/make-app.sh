@@ -21,7 +21,7 @@ cd "$ROOT"
 
 VERSION="$(cat VERSION 2>/dev/null | tr -d '[:space:]' || echo 0.1.0)"
 APP_NAME="DeepSeekHarness"
-DISPLAY="深求"
+DISPLAY="鲸伴"
 BUNDLE_ID="dev.deepseek-harness.desktop"
 
 if [[ ! -d "Resources/runtime" || ! -x "Resources/runtime/node" ]]; then

@@ -1,4 +1,4 @@
-/* 深求 service worker — minimal v1.
+/* 鲸伴 service worker — minimal v1.
  * cache-first for app shell (/src/*, /public/*, /), network-first for /v1/*.
  * Bump CACHE_NAME on any shell change to force update.
  */

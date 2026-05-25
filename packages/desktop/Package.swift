@@ -1,6 +1,6 @@
 // swift-tools-version:6.0
 //
-// DeepSeek Harness (深求) — SwiftUI macOS menubar client.
+// DeepSeek Harness (鲸伴) — SwiftUI macOS menubar client.
 //
 // Build with Command Line Tools only:
 //     swift build -c release

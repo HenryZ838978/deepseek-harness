@@ -101,7 +101,7 @@ struct SettingsView: View {
             Section {
                 HStack {
                     Spacer()
-                    Text("深求小助手 v\(appVersion())")
+                    Text("鲸伴小助手 v\(appVersion())")
                         .font(.caption).foregroundStyle(.tertiary)
                 }
             }

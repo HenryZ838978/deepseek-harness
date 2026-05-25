@@ -81,7 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                               accessibilityDescription: "DeepSeek Harness")
             img?.isTemplate = true
             button.image = img
-            button.toolTip = "深求 (DeepSeek Harness)"
+            button.toolTip = "鲸伴 (DeepSeek Harness)"
             button.action = #selector(togglePopover(_:))
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -187,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         .environmentObject(prefs)
         let host = NSHostingController(rootView: view)
         let w = NSWindow(contentViewController: host)
-        w.title = "欢迎使用深求 (Welcome to DeepSeek Harness)"
+        w.title = "欢迎使用鲸伴 (Welcome to DeepSeek Harness)"
         w.setContentSize(NSSize(width: 560, height: 420))
         w.styleMask = [.titled, .closable]
         w.isReleasedWhenClosed = false

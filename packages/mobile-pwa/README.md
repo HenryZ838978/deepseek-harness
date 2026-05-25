@@ -1,4 +1,4 @@
-# 深求 DeepSeek Harness — Mobile PWA
+# 鲸伴 DeepSeek Harness — Mobile PWA
 
 Zero-build Progressive Web App chat client for the DeepSeek Harness backend.
 Plain HTML + ES modules + CSS. No bundler. `open public/index.html` runs it

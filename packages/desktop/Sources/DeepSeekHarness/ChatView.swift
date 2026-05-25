@@ -28,7 +28,7 @@ struct ChatView: View {
         HStack(spacing: 10) {
             Image(systemName: "fish.fill")
                 .foregroundStyle(.tint)
-            Text("深求小助手")
+            Text("鲸伴小助手")
                 .font(.headline)
 
             Spacer()
@@ -162,7 +162,7 @@ struct ChatView: View {
             Image(systemName: "fish.fill")
                 .font(.system(size: 36))
                 .foregroundStyle(.tint.opacity(0.5))
-            Text("您好，我是深求小助手")
+            Text("您好，我是鲸伴小助手")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             Text("有什么想让我帮忙的，直接告诉我就行～")
@@ -272,7 +272,7 @@ private struct MessageBubble: View {
     private var roleLabel: String {
         switch message.role {
         case .user:      return "您"
-        case .assistant: return "深求"
+        case .assistant: return "鲸伴"
         case .system:    return "系统"
         }
     }

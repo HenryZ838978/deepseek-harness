@@ -17,7 +17,7 @@ struct FirstRunView: View {
                     .font(.system(size: 42))
                     .foregroundStyle(.tint)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("欢迎使用 深求")
+                    Text("欢迎使用 鲸伴")
                         .font(.title2.bold())
                     Text("Welcome to DeepSeek Harness")
                         .foregroundStyle(.secondary)

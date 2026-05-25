@@ -6,7 +6,7 @@ import { streamRun, getBudget, cancel as apiCancel, healthCheck, getSession } fr
 import { renderSessionsDrawer } from './ui-sessions.js';
 
 const MODELS = [
-  { id: 'auto',   name: '自动',    desc: '让深求自动选择' },
+  { id: 'auto',   name: '自动',    desc: '让鲸伴自动选择' },
   { id: 'flash',  name: 'Flash',  desc: '极速 · 适合日常对话' },
   { id: 'pro',    name: 'Pro',    desc: '更强 · 适合代码与推理' },
   { id: 'pro-1m', name: 'Pro 1M', desc: '超长上下文 · 1M tokens' },
@@ -46,13 +46,13 @@ export function renderChat(root, { navigate }) {
   const msgList = el('div', { class: 'msg-list' });
   const emptyState = el('div', { class: 'msg-empty' },
     el('b', {}, '你好 👋'),
-    '说点什么开始吧。深求可以帮你写代码、读文档、改 Bug。',
+    '说点什么开始吧。鲸伴可以帮你写代码、读文档、改 Bug。',
   );
   msgList.appendChild(emptyState);
 
   // ---- composer ----
   const textarea = el('textarea', {
-    placeholder: '发消息给深求…',
+    placeholder: '发消息给鲸伴…',
     rows: 1,
     enterkeyhint: 'send',
   });

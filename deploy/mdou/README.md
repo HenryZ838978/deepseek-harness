@@ -30,7 +30,7 @@ in a representative chunk of what an agent typically reaches for:
 
 ## One-time mdou setup (the steps you do in mdou web UI)
 
-1. Go to https://mdou.modelbest.co → 新建应用 → 中文名 "深求云端 (server)" → 英文名 `dsh-cloudagent` → 域名前缀 `dsh-api` (final URL `https://dsh-api.mdou.modelbest.co`)
+1. Go to https://mdou.modelbest.co → 新建应用 → 中文名 "鲸伴云端 (server)" → 英文名 `dsh-cloudagent` → 域名前缀 `dsh-api` (final URL `https://dsh-api.mdou.modelbest.co`)
 2. Note the **应用 ID** (a number, e.g. 123). You'll feed it back to Cursor.
 3. Add 端口 `7777` (协议 HTTP), enable "对外服务"
 4. 添加域名 → 选 `dsh-api` 前缀 → mdou auto-routes 7777

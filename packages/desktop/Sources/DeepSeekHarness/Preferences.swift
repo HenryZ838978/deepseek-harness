@@ -54,12 +54,12 @@ final class Preferences: ObservableObject {
         Preferences.ensureBuddyWorkspace()
     }
 
-    /// Auto-create `~/Documents/深求小助手/` and use it as the agent's working
+    /// Auto-create `~/Documents/鲸伴小助手/` and use it as the agent's working
     /// directory. The user never sees the word "workspace" anywhere — buddy
     /// just operates here by default.
     static var buddyWorkspaceURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/深求小助手", isDirectory: true)
+            .appendingPathComponent("Documents/鲸伴小助手", isDirectory: true)
     }
     private static func ensureBuddyWorkspace() {
         try? FileManager.default.createDirectory(at: buddyWorkspaceURL,
