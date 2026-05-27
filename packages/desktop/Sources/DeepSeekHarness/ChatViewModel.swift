@@ -49,6 +49,10 @@ final class ChatViewModel: ObservableObject {
     // Injected by AppDelegate.
     weak var bootScan: BootScan?
     weak var fileIndex: FileIndex?
+    weak var conversationStore: ConversationStore?
+
+    var conversationId: String?
+    var prefsModelRaw: String { Preferences.shared.model.rawValue }
 
     var hasThinkingPanel: Bool {
         !thinkingText.isEmpty || (isStreaming && !thinkingDone)
@@ -91,6 +95,18 @@ final class ChatViewModel: ObservableObject {
         f.dateFormat = "HH:mm:ss"
         consoleLines.append("[\(f.string(from: Date()))] \(line)")
         if consoleLines.count > 400 { consoleLines.removeFirst(consoleLines.count - 400) }
+    }
+
+    func loadConversation(row: SessionDatabase.ConversationRow, messages: [ChatMessage]) {
+        conversationId = row.id
+        sessionID = row.serverSessionId
+        self.messages = messages
+        input = row.draft
+        currentAssistantText = ""
+        errorBanner = nil
+        pendingFirstTurn = messages.isEmpty
+        proactiveGreetingFired = !messages.isEmpty
+        resetActivity()
     }
 
     // MARK: - Public API
@@ -266,6 +282,7 @@ final class ChatViewModel: ObservableObject {
         case "session":
             if let ev = try? dec.decode(SessionEvent.self, from: frame.data) {
                 self.sessionID = ev.session_id
+                conversationStore?.onServerSessionId(ev.session_id)
             }
         case "thinking":
             if let ev = try? dec.decode(ThinkingEvent.self, from: frame.data) {
@@ -345,6 +362,7 @@ final class ChatViewModel: ObservableObject {
         }
         isStreaming = false
         streamTask = nil
+        conversationStore?.persistActiveChat()
     }
 
     private func finishWithError(_ message: String) {

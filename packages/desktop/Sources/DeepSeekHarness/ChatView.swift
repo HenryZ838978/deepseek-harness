@@ -29,9 +29,10 @@ struct ChatView: View {
             Divider()
             inputBar
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(
-            width: presentation == .workbench ? 760 : 480,
-            height: presentation == .workbench ? 860 : 640
+            minWidth: presentation == .workbench ? 480 : 380,
+            minHeight: presentation == .workbench ? 400 : 480
         )
         .onAppear { vm.capUSD = prefs.dailyBudgetUSD }
         .onChange(of: prefs.dailyBudgetUSD) { new in vm.capUSD = new }

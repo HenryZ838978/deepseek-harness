@@ -4,6 +4,7 @@ struct SettingsView: View {
     @EnvironmentObject var prefs: Preferences
 
     @State private var apiKey: String = ""
+    @AppStorage("dsh.sidebarWidth") private var sidebarWidth: Double = 240
     @State private var saveMessage: String?
     @State private var saving = false
 

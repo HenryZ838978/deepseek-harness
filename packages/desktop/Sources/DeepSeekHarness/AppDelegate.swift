@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let server = EmbeddedServer()
     let chatVM = ChatViewModel()
+    let conversationStore = ConversationStore()
     let prefs = Preferences.shared
 
     // Buddy-layer background actors.
@@ -30,6 +31,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Wire the buddy actors into the chat view-model.
         chatVM.bootScan = bootScan
         chatVM.fileIndex = fileIndex
+        chatVM.conversationStore = conversationStore
+        conversationStore.chatVM = chatVM
 
         buildStatusItem()
         buildPopover()
@@ -39,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // in the background so the menubar icon appears instantly.
         Task { [weak self] in
             guard let self = self else { return }
+            await self.conversationStore.bootstrap()
             // Warm the caches: device snapshot + file index can both fire
             // before the user clicks anything.
             async let _ = self.bootScan.snapshot()
@@ -150,7 +154,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = nil
     }
 
-    @objc private func menuNewSession() { chatVM.newSession() }
+    @objc private func menuNewSession() { conversationStore.newConversation() }
     @objc private func menuClearChat()  { chatVM.clear() }
     @objc private func menuWorkbench()  { showWorkbench() }
     @objc private func menuSettings()   { showSettings() }
@@ -164,14 +168,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.activate(ignoringOtherApps: true)
             return
         }
-        let root = ChatView(presentation: .workbench)
+        let root = WorkbenchShellView()
             .environmentObject(chatVM)
+            .environmentObject(conversationStore)
             .environmentObject(prefs)
             .environmentObject(asEnv)
         let host = NSHostingController(rootView: root)
         let w = NSWindow(contentViewController: host)
         w.title = "鲸伴 · 工作台"
-        w.setContentSize(NSSize(width: 780, height: 880))
+        w.setContentSize(NSSize(width: 960, height: 720))
+        w.minSize = NSSize(width: 720, height: 560)
         w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         w.isReleasedWhenClosed = false
         w.center()
@@ -240,7 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // ⌘N / ⌘K while popover focused
             if event.modifierFlags.contains(.command) {
                 if event.charactersIgnoringModifiers == "n" {
-                    self.chatVM.newSession(); return nil
+                    self.conversationStore.newConversation(); return nil
                 }
                 if event.charactersIgnoringModifiers == "k" {
                     self.chatVM.clear(); return nil
