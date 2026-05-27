@@ -1,0 +1,34 @@
+{
+  "name": "@deepseek-harness/server",
+  "version": "0.1.0",
+  "description": "HTTP + SSE server that wraps @anthropic-ai/claude-code with DeepSeek V4 backend. Powers the desktop app, the PWA, and the K8s cloud deployment.",
+  "type": "module",
+  "bin": {
+    "dsh-server": "./bin/dsh-server.js"
+  },
+  "main": "./src/server.js",
+  "files": [
+    "bin/",
+    "src/",
+    "skills/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node bin/dsh-server.js",
+    "dev": "DSH_LOG_LEVEL=debug node bin/dsh-server.js",
+    "smoke": "node tests/smoke.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-code": "^2.1.0"
+  },
+  "license": "MIT",
+  "author": "Henry Zhang",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HenryZ838978/deepseek-harness.git",
+    "directory": "packages/server"
+  }
+}

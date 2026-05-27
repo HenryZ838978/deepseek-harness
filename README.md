@@ -5,22 +5,68 @@
 
 # `deepseek-harness`
 
-### Protocol-aware adapters for DeepSeek V4-Pro and V4-Flash
+### One protocol layer · three audiences · same DeepSeek V4 underneath
 
 [![pypi](https://img.shields.io/pypi/v/deepseek-harness?label=pip%20install&color=3776AB&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness/)
 [![npm](https://img.shields.io/npm/v/@deepseek-harness/mcp?label=npx%20mcp&color=CB3837&logo=npm&logoColor=white)](https://npmjs.com/package/@deepseek-harness/mcp)
 [![skill](https://img.shields.io/badge/Anthropic-SKILL.md-D97757?logo=anthropic&logoColor=white)](packages/skill/SKILL.md)
-[![probes](https://img.shields.io/badge/probes-12-1f6feb)](reports/probes/)
-[![findings](https://img.shields.io/badge/findings-16-22c55e)](reports/REPORT_2026-05-09.md)
-[![ceiling](https://img.shields.io/badge/context%20ceiling-1%2C048%2C576-orange)](spec/06_context_limits.md)
-[![cache discount](https://img.shields.io/badge/cache%20discount-50%C3%97-yellow)](spec/04_cache_hit.md)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-
-A single protocol contract distributed in four wrapper formats. Designed to meet the integration requirements of any OpenAI-compatible client.
 
 </div>
 
 ---
+
+## 🚪 三个入口，选一个
+
+| 你是谁 | 你想干什么 | 用这个 | 状态 |
+|---|---|---|---|
+| **开发者** | 想在外网随时用付费的 Cursor / Opus 写代码 | [**LarksorTC**](https://github.com/HenryZ838978/Larksor-TC) — 飞书 ↔ Cursor 桥 | ✅ alpha |
+| **不写代码的人 · Mac 用户** | 想要一个住在 Mac 菜单栏的"超级 buddy"，会读你的电脑、会找你的文件、说人话 | [`packages/desktop`](packages/desktop) — SwiftUI 菜单栏 `.app` | 🚧 alpha · 一键 `.dmg` 即将就位 |
+| **不写代码的人 · 手机用户** | 关机也能跑任务，扫码就能在手机上聊 | [`packages/mobile-pwa`](packages/mobile-pwa) — 渐进式 Web App | 🚧 alpha · `cloud.deepseek-harness.dev` 即将上线 |
+
+后端：[`packages/server`](packages/server)（本地 + 云端同一份代码）。云端用 [`deploy/mdou`](deploy/mdou) 一键上 Rainbond / K8s。
+
+---
+
+## 🐳 Mac 桌面 buddy 的核心想法
+
+不是"给小白的 Claude Code"，是**完全不让小白看到任何技术细节**：
+
+- **启动自检**——开机就读 CPU/内存/存储/Chrome 标签数，主动问"要不要整理一下？"
+- **预扫文件**——自动扫微信/飞书/钉钉/WPS 的文档目录，永远不让用户去找路径
+- **默认免确认**——除非要删文件/发消息/动密码，否则一律自动干
+- **零黑话翻译**——系统 prompt 严禁出现"脚本/路径/JSON/终端"，全部换成"我帮你写个小程序"、"您的某某文件"
+- **目标**：把 DS V4-Pro 调出 Opus 那种"super buddy"质感
+
+详见 [`packages/server/src/buddy.js`](packages/server/src/buddy.js) 的系统 prompt + [`packages/desktop/Sources/DeepSeekHarness/BootScan.swift`](packages/desktop/Sources/DeepSeekHarness/BootScan.swift) / [`FileIndex.swift`](packages/desktop/Sources/DeepSeekHarness/FileIndex.swift)。
+
+---
+
+## 🏗 Monorepo 一览
+
+```
+deepseek-harness/
+├── packages/
+│   ├── skill/         ← Anthropic SKILL.md，给所有 agent 读的 10 条协议契约（库本体）
+│   ├── core/          ← pip 库 deepseek-harness
+│   ├── cli/           ← pip CLI deepseek-harness-cli (dsh)
+│   ├── mcp/           ← npm MCP server @deepseek-harness/mcp
+│   ├── server/        🆕 dsh-server — HTTP + SSE，桌面/PWA/云端共用的 runtime
+│   ├── desktop/       🆕 SwiftUI 菜单栏 .app（buddy 模式）
+│   └── mobile-pwa/    🆕 PWA 聊天客户端（手机扫码即用）
+├── deploy/
+│   ├── mdou/          🆕 Dockerfile + Rainbond/Aliyun 一键部署文档
+│   └── helm/          🆕 K8s helm chart（占位，下阶段）
+├── docs/consumer/     🆕 v1 API 契约（server ↔ 所有 client）
+├── reports/           ← 16-bug 报告 + 12 个 probe
+└── spec/              ← 协议规范
+```
+
+🆕 的部分跑在 `consumer-products` 分支上，等审查通过合 main。
+
+---
+
+## 库本体（开发者用）—— 下面是原 README
 
 ## Status
 
