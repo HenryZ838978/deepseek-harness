@@ -1,7 +1,14 @@
 import SwiftUI
 import AppKit
 
+enum ChatPresentation {
+    case popover
+    case workbench
+}
+
 struct ChatView: View {
+    var presentation: ChatPresentation = .popover
+
     @EnvironmentObject var vm: ChatViewModel
     @EnvironmentObject var prefs: Preferences
     @EnvironmentObject var env: AppEnv
@@ -13,11 +20,19 @@ struct ChatView: View {
             if let err = vm.errorBanner {
                 errorBanner(err)
             }
+            CollapsiblePanelsView(vm: vm)
             messageList
+            if presentation == .workbench {
+                Divider()
+                AgentConsoleView(vm: vm)
+            }
             Divider()
             inputBar
         }
-        .frame(width: 480, height: 640)
+        .frame(
+            width: presentation == .workbench ? 760 : 480,
+            height: presentation == .workbench ? 860 : 640
+        )
         .onAppear { vm.capUSD = prefs.dailyBudgetUSD }
         .onChange(of: prefs.dailyBudgetUSD) { new in vm.capUSD = new }
     }
@@ -42,6 +57,7 @@ struct ChatView: View {
                 Button("清空聊天 (Clear Chat)") { vm.clear() }
                     .keyboardShortcut("k", modifiers: .command)
                 Divider()
+                Button("打开工作台 (Workbench) ⌘⇧W") { env.openWorkbench() }
                 Button("设置… (Settings…)") { env.openSettings() }
                 Divider()
                 Button("退出 (Quit)") { env.quit() }

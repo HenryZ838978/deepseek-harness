@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>DeepSeek Harness</string>
+    <string>WhaleBuddy</string>
     <key>CFBundleDisplayName</key>
     <string>鲸伴</string>
     <key>CFBundleExecutable</key>

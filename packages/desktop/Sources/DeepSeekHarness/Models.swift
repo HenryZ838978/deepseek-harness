@@ -35,6 +35,7 @@ enum SSEEventName: String {
     case thinking
     case tool_call
     case tool_result
+    case todo
     case delta
     case usage
     case done
@@ -53,6 +54,7 @@ struct ThinkingEvent: Decodable {
 struct ToolCallEvent: Decodable {
     let id: String
     let name: String
+    let label: String?
     let args_preview: String?
     let status: String?
 }

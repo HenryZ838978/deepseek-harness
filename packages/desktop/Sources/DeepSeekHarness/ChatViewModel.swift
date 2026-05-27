@@ -10,6 +10,17 @@ final class ChatViewModel: ObservableObject {
     @Published var isStreaming: Bool = false
     @Published var errorBanner: String?
 
+    // LarksorTC-style activity panels
+    @Published var thinkingText: String = ""
+    @Published var thinkingExpanded: Bool = false
+    @Published var thinkingDone: Bool = true
+    @Published var todos: [TodoItem] = []
+    @Published var todosExpanded: Bool = false
+    @Published var tools: [ToolActivity] = []
+    @Published var toolsExpanded: Bool = true
+    @Published var consoleLines: [String] = []
+
+
     /// Live assistant text under construction (mirrored into messages[last].text).
     @Published var currentAssistantText: String = ""
 
@@ -39,6 +50,49 @@ final class ChatViewModel: ObservableObject {
     weak var bootScan: BootScan?
     weak var fileIndex: FileIndex?
 
+    var hasThinkingPanel: Bool {
+        !thinkingText.isEmpty || (isStreaming && !thinkingDone)
+    }
+
+    var thinkingHeader: String {
+        if thinkingDone {
+            return "💭 thought · \(thinkingText.count) chars"
+        }
+        return thinkingText.isEmpty ? "💭 thinking…" : "💭 thinking… (\(thinkingText.count) chars)"
+    }
+
+    var todosHeader: String {
+        let done = todos.filter { $0.status.lowercased() == "completed" }.count
+        let prog = todos.filter { $0.status.lowercased() == "in_progress" }.count
+        var h = "📋 todos \(done)/\(todos.count)"
+        if prog > 0 { h += " · 🔄 \(prog) in-progress" }
+        return h
+    }
+
+    var toolsHeader: String {
+        let ms = tools.compactMap { $0.elapsedMs }.reduce(0, +)
+        return ms > 0 ? "🔧 \(tools.count) tool calls · \(String(format: "%.1f", Double(ms)/1000))s" : "🔧 \(tools.count) tool calls"
+    }
+
+    func clearConsole() { consoleLines.removeAll() }
+
+    private func resetActivity() {
+        thinkingText = ""
+        thinkingExpanded = false
+        thinkingDone = true
+        todos = []
+        todosExpanded = false
+        tools = []
+        toolsExpanded = true
+    }
+
+    private func logConsole(_ line: String) {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        consoleLines.append("[\(f.string(from: Date()))] \(line)")
+        if consoleLines.count > 400 { consoleLines.removeFirst(consoleLines.count - 400) }
+    }
+
     // MARK: - Public API
 
     func send(prompt: String? = nil) {
@@ -46,6 +100,7 @@ final class ChatViewModel: ObservableObject {
         guard !text.isEmpty, !isStreaming else { return }
         input = ""
         errorBanner = nil
+        resetActivity()
 
         messages.append(ChatMessage(role: .user, text: text))
         let assistantID = UUID()
@@ -133,6 +188,7 @@ final class ChatViewModel: ObservableObject {
                            greeting: Bool,
                            showUserBubble: Bool) async {
         let prefs = Preferences.shared
+        resetActivity()
 
         // Gather buddy context — device snapshot + recent files. These are
         // both cheap thanks to caching, but await them off the main actor.
@@ -212,13 +268,35 @@ final class ChatViewModel: ObservableObject {
                 self.sessionID = ev.session_id
             }
         case "thinking":
-            break
+            if let ev = try? dec.decode(ThinkingEvent.self, from: frame.data) {
+                thinkingText.append(ev.delta)
+                thinkingDone = false
+                if !thinkingExpanded { thinkingExpanded = true }
+                logConsole("thinking +\(ev.delta.count)")
+            }
+        case "todo":
+            if let ev = try? dec.decode(TodoEvent.self, from: frame.data) {
+                todos = ev.todos
+                todosExpanded = true
+                logConsole("todo update \(ev.todos.count) items")
+            }
         case "tool_call":
             if let ev = try? dec.decode(ToolCallEvent.self, from: frame.data) {
-                appendAssistant("\n> 🔧 \(ev.name)\n", id: assistantID)
+                let label = ev.label ?? ev.name
+                tools.append(ToolActivity(id: ev.id, name: ev.name, label: label,
+                                          statusIcon: "⚙", elapsedMs: nil))
+                toolsExpanded = true
+                logConsole("tool ▶ \(label)")
             }
         case "tool_result":
-            break
+            if let ev = try? dec.decode(ToolResultEvent.self, from: frame.data) {
+                if let idx = tools.firstIndex(where: { $0.id == ev.id }) {
+                    let failed = !(ev.ok) || ((ev.rc ?? 0) >= 2)
+                    tools[idx].statusIcon = failed ? "✗" : "✓"
+                    tools[idx].elapsedMs = ev.elapsed_ms
+                }
+                logConsole("tool ✓ id=\(ev.id)")
+            }
         case "delta":
             if let ev = try? dec.decode(DeltaEvent.self, from: frame.data) {
                 appendAssistant(ev.text, id: assistantID)
@@ -257,6 +335,8 @@ final class ChatViewModel: ObservableObject {
     }
 
     private func finalizeStream(assistantID: UUID) {
+        thinkingDone = true
+        thinkingExpanded = false; toolsExpanded = false
         if let idx = messages.lastIndex(where: { $0.id == assistantID }) {
             messages[idx].isStreaming = false
             if messages[idx].text.isEmpty {

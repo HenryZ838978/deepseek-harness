@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var popover: NSPopover!
     private var settingsWindow: NSWindow?
     private var firstRunWindow: NSWindow?
+    private var workbenchWindow: NSWindow?
 
     let server = EmbeddedServer()
     let chatVM = ChatViewModel()
@@ -105,6 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Tiny wrapper so SwiftUI views can ask the delegate to open Settings etc.
     lazy var asEnv: AppEnv = AppEnv(
         openSettings: { [weak self] in self?.showSettings() },
+        openWorkbench: { [weak self] in self?.showWorkbench() },
         openFirstRun: { [weak self] in self?.showFirstRun() },
         quit:         { NSApp.terminate(nil) }
     )
@@ -134,6 +136,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "清空聊天 (Clear Chat) ⌘K",
                      action: #selector(menuClearChat), keyEquivalent: "")
         menu.addItem(.separator())
+        menu.addItem(withTitle: "打开工作台 (Workbench)",
+                     action: #selector(menuWorkbench), keyEquivalent: "")
         menu.addItem(withTitle: "设置… (Settings…)",
                      action: #selector(menuSettings), keyEquivalent: "")
         menu.addItem(.separator())
@@ -148,8 +152,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuNewSession() { chatVM.newSession() }
     @objc private func menuClearChat()  { chatVM.clear() }
+    @objc private func menuWorkbench()  { showWorkbench() }
     @objc private func menuSettings()   { showSettings() }
     @objc private func menuQuit()       { NSApp.terminate(nil) }
+
+    // MARK: - Workbench window (dockable terminal-style UI)
+
+    func showWorkbench() {
+        if let w = workbenchWindow {
+            w.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let root = ChatView(presentation: .workbench)
+            .environmentObject(chatVM)
+            .environmentObject(prefs)
+            .environmentObject(asEnv)
+        let host = NSHostingController(rootView: root)
+        let w = NSWindow(contentViewController: host)
+        w.title = "鲸伴 · 工作台"
+        w.setContentSize(NSSize(width: 780, height: 880))
+        w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        w.isReleasedWhenClosed = false
+        w.center()
+        workbenchWindow = w
+        w.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
 
     // MARK: - Settings window
 
@@ -233,12 +262,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 // Lightweight env passed into SwiftUI for delegate callbacks.
 final class AppEnv: ObservableObject {
     let openSettings: () -> Void
+    let openWorkbench: () -> Void
     let openFirstRun: () -> Void
     let quit: () -> Void
     init(openSettings: @escaping () -> Void,
+         openWorkbench: @escaping () -> Void,
          openFirstRun: @escaping () -> Void,
          quit: @escaping () -> Void) {
         self.openSettings = openSettings
+        self.openWorkbench = openWorkbench
         self.openFirstRun = openFirstRun
         self.quit = quit
     }

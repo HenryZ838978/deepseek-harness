@@ -183,9 +183,23 @@ function* translateEvent(evt, { answerBuf, toolIndex, usageTotal }) {
   if (t === "tool_call") {
     if (sub === "started") {
       toolIndex.set(evt.id, evt);
+      const input = evt.input || evt.args || {};
+      const name = evt.name || evt.tool_name || evt.kind || "(tool)";
+      if (/todoWrite/i.test(String(name)) || String(evt.kind || "").includes("todoWrite")) {
+        const todos = input.todos || [];
+        if (Array.isArray(todos) && todos.length) {
+          yield { event: "todo", data: { todos: todos.map((t, i) => ({
+            id: t.id || `todo-${i}`,
+            content: t.content || "",
+            status: t.status || "pending",
+          })) } };
+          return;
+        }
+      }
       yield { event: "tool_call", data: {
-        id: evt.id, name: evt.name || evt.tool_name || "(tool)",
-        args_preview: shortPreview(evt.input || evt.args), status: "started",
+        id: evt.id, name,
+        label: toolLabel(name, input),
+        args_preview: shortPreview(input), status: "started",
       } };
     } else if (sub === "completed") {
       const rc = evt.rc ?? evt.return_code ?? null;
@@ -218,6 +232,21 @@ function* translateEvent(evt, { answerBuf, toolIndex, usageTotal }) {
       cost_usd: +evt.cost_usd || 0,
     } };
   }
+}
+
+function toolLabel(name, input) {
+  const n = String(name || "");
+  const args = input || {};
+  if (/todoWrite/i.test(n)) return `update todos (${(args.todos || []).length})`;
+  if (/bash|shell/i.test(n)) {
+    const cmd = args.command || args.cmd || "";
+    return cmd ? `shell ${String(cmd).slice(0, 72)}` : "shell";
+  }
+  if (/read/i.test(n)) return `read ${shortPreview(args.path || args.file, 60)}`;
+  if (/write|edit/i.test(n)) return `edit ${shortPreview(args.path || args.file, 60)}`;
+  if (/grep/i.test(n)) return `grep ${shortPreview(args.pattern, 40)}`;
+  if (/webSearch/i.test(n)) return `search ${shortPreview(args.query, 50)}`;
+  return n.replace(/ToolCall$/i, "") || n;
 }
 
 function shortPreview(obj, n = 80) {
