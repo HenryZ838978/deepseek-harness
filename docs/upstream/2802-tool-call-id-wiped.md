@@ -1,8 +1,19 @@
 # Draft reply — upstream Discussion #2802
 
-> **状态:待发,不单发。** 与其余 7 条一起回复(#2725 / #2755 / #2573 / #2756 / #2674 / #2787 / #2798 / #2665)。
-> #2756、#2787 若复现涉及用户凭据/数据破坏,先私下报官方再公开。
-> 复现环境与判定词表见 [`../DEVLOG.md`](../DEVLOG.md) 2026-08-17 条目。
+> **状态：STALE — DO NOT SEND. See `DRAFT-2571-concurrent-writers.md` and
+> DEVLOG 2026-08-17 (二·晚) for the reversal.**
+>
+> End-to-end validation against real DeepSeek streams (301 raw SSE frames +
+> 1275 adapter→assembler frames) shows `id:""` / `name:""` count = 0. The
+> upstream frame protocol emits `id`/`name` as **absent** (not empty string)
+> on continuation frames; llm-deepseek `translate.ts:159` `!== undefined`
+> guards, and assembler `:70` no-guard is a static hole with no current
+> trigger.
+>
+> This note is preserved as provenance only. What remains true: the guard
+> asymmetry in `assembler.ts:70` vs `:71` is worth a minor PR, but not
+> under a "user-visible bug" label. Send at most as a nit alongside a
+> larger substantive report.
 
 ---
 

@@ -5,6 +5,86 @@
 > 纯事实时间线待建 `PROVENANCE.md`。单条时间线,倒序。
 
 ---
+## 2026-08-17 (二·跨夜) — J3 #2571 **REPRODUCED,双失败模式** + P5 探针 + 上游底稿
+
+### 硬结论
+
+**#2571 端到端复现,并把病灶推大一档:seq gap 有两种失败模式,原报告只见其一。**
+
+| 输入模式(seq 序列)                     | scanLog 行为 | 语义 |
+|---|---|---|
+| `0,1,2` 健康                              | ok, 3 events | baseline |
+| `0,1,1` / `0,1,3` / `0,1,0` / `0,1,1,2`  | **不 throw**,events 停在 gap 前 | **静默截断** — session 加载,但内容少了,用户看不出 |
+| `0,1,1,turn/end@2` / `0,1,end@1` / `0,1,0,end@1`  | **THROW** `corrupt session log: seq gap ...` | session **永久不可加载** |
+
+关键代码位置(rc.6 编译产物 `dsh-session-persistence-jsonl/lib/index.js:281–293`,
+对应源 `format.ts` 的 `SessionLogScanner.consumeEventLine`):
+
+```js
+if (event.seq !== this.events.length) {
+  ...
+  this.issue = new Error(`corrupt session log: seq gap ...`)
+  if (decoded.some(c => c.type === "turn/end")) throw this.issue
+  return                                                          // 否则暗藏
+}
+```
+
+`this.issue` 是**惰性引爆的地雷**——任何后续行只要带 `turn/end` 就 throw。
+正常会话结束都会写 turn/end,所以**两个 concurrent writer 各自完成一个 turn 就百分百炸**。
+
+### 为什么持久化层拦不住
+
+- `link()+unlink()` 发布(`index.ts:544–546`)只防**已发布产物被覆盖**,防不了两个进程各自 `open()` 追加。
+- `PersistenceCoordinator.state.owner`(`coordinator.ts:940`)是**进程内**排他,跨进程各自 `owner === undefined` 都 attach。
+- `grep -rE 'flock|O_EXCL|lockf|proper-lockfile' packages/session/` → **命中 0**。
+  **进程内不变量被当成系统不变量**——不是一回事。
+
+### 方法学(J3 用哪种复现)
+
+尝试 A:两个 Node 进程真起 Session/JsonlSessionPersistence → Cordis Service 需要 ctx,依赖太重,弃。
+尝试 B(采用):**忠实移植 scanLog 到独立 mjs**(源码就 30 行),喂手工构造的 JSONL fixture。
+scanner 是纯函数,fixture 就是 concurrent writer 会落盘的字节 —— 等价证明。
+无 API 调用、~2s CPU、零成本。
+
+### 产出(commit 就绪)
+
+- `packages/cli/deepseek_harness_cli/doctor_node/p5_seqgap.py` —— **P5-seqgap 探针**,
+  离线扫用户 session dir 的 `.jsonl`,两种模式各自报告(FAIL/WARN),`.jsonl.zstd` 暂缓(需 zstd 解码)。
+  验证:合成 corrupt/truncated fixture → 正确检出 FAIL 与 WARN。
+- `docs/upstream/DRAFT-2571-concurrent-writers.md` —— **正式底稿**,含双模式说明、代码位置、修复建议(`flock(LOCK_EX|LOCK_NB)` on log fd)。**标注"先私下、5 工作日不回再公开"**。
+- `docs/upstream/2802-tool-call-id-wiped.md` 顶部加 **STALE — DO NOT SEND** 前言,防日后误发。
+- 服务器 `overnight/j3/notes.md` + `scan_probe.json` —— 完整 trial matrix,归档在服务器 dsh-probe/。
+
+### J1(P1 长采样)预告观察 —— 跨夜跑 200 trials
+
+截跑到 95/200 时的**信号非常清晰**,非随机:
+
+- `single_tool` prompt 组:几乎全线 `total≈14 / reasoning=0`(silent)
+- `multi_tool` 组:大多 healthy(`reasoning=100+`),偶发 silent
+- silence 与 **prompt 短小/简单** 强相关
+
+即"reasoner+tools 吞 reasoning_content" **不是随机现象,是有触发条件的**——
+最可能是短提示让 reasoner 快速给答案,skip 掉 reasoning stream 阶段。
+待 200 trials 完再定完整假设,`overnight/j1/summary.json` 会有相关矩阵。
+
+### 跨夜执行栈(记录以便复盘)
+
+- 本机 `caffeinate -dimsu` 前台守护
+- 服务器 `setsid nohup env DEEPSEEK_API_KEY=... N_PER_CELL=10 ./runall.sh &`
+- `overnight/runall.sh` 串行 J1(采样)→J2(dsh-toolkit 侦察)→J3(re-freshen scan)
+- 各 job 独立 log 在 `overnight/logs/`,汇总 `overnight/SUMMARY.md`
+- key 只在 env 传递,脚本内不落盘、日志内经 sed 擦除
+
+### 明早 wake 后 checklist
+
+1. `tail overnight/j1/summary.json`——看 silence rate 按 prompt/temp 的分布是否稳定
+2. 读 `overnight/j2/recon.md`——决 dsh-toolkit 撞车姿态(合流/分岔)
+3. 读 `overnight/j3/notes.md`——已完成,只需 confirm 没被 J3 re-run 弄乱
+4. **本地 commit(不 push)**:P5 + DRAFT-2571 + DEVLOG 本条目 + 2802 STALE 标记
+5. 更新 README:「what dsh doctor sees today」section 加 P5
+6. 决 push 时机:等 J1 完 + 底稿定稿再一次性 push
+
+---
 ## 2026-08-17 (二·夜) — `dsh doctor --node` v0 上线 + 元插件占位
 
 ### 一句话
