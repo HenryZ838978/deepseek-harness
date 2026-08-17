@@ -8,7 +8,6 @@
 ### Protocol-aware adapters for DeepSeek V4-Pro and V4-Flash
 
 [![pypi](https://img.shields.io/pypi/v/deepseek-harness?label=pip%20install&color=3776AB&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness/)
-[![npm](https://img.shields.io/npm/v/@deepseek-harness/mcp?label=npx%20mcp&color=CB3837&logo=npm&logoColor=white)](https://npmjs.com/package/@deepseek-harness/mcp)
 [![skill](https://img.shields.io/badge/Anthropic-SKILL.md-D97757?logo=anthropic&logoColor=white)](packages/skill/SKILL.md)
 [![probes](https://img.shields.io/badge/probes-12-1f6feb)](reports/probes/)
 [![findings](https://img.shields.io/badge/findings-16-22c55e)](reports/REPORT_2026-05-09.md)
@@ -18,7 +17,191 @@
 
 A single protocol contract distributed in four wrapper formats. Designed to meet the integration requirements of any OpenAI-compatible client.
 
+**English** · [中文](README.zh-CN.md)
+
 </div>
+
+---
+
+## Package identity
+
+`dsh` is also the command name of the official DeepSeek agent framework
+([deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness), Node,
+released 2026-08-13).
+
+This repository is a pure harness — the `reasoning_content` round-trip, thinking-mode token
+tax, prefix-cache block alignment — shipped as a plug-in.
+
+Agent framework: `npx @deepseek-ai/dsh` · This: `pip install deepseek-harness-cli && dsh doctor`
+
+### The round-trip, and the 400 it causes
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App as Agent application
+    participant SDK as openai SDK
+    participant DS as DeepSeek V4
+
+    rect rgb(254, 226, 226)
+    Note over App,DS: Without harness — multi-turn tool loop
+    App->>SDK: chat.completions.create(messages, tools)
+    SDK->>DS: POST /chat/completions
+    DS-->>SDK: 200 · message + tool_calls + reasoning_content
+    SDK-->>App: assistant message (reasoning_content stripped by App)
+    App->>SDK: re-send updated history (no reasoning_content)
+    SDK->>DS: POST /chat/completions
+    DS-->>SDK: 400 reasoning_content must be passed back
+    SDK-->>App: ❌ BadRequestError
+    end
+
+    rect rgb(220, 252, 231)
+    Note over App,DS: With harness — same loop
+    App->>SDK: DeepSeekHarness.chat(messages, tools)
+    SDK->>DS: POST /chat/completions
+    DS-->>SDK: 200 · message + tool_calls + reasoning_content
+    SDK-->>App: assistant message (reasoning_content preserved)
+    App->>SDK: DeepSeekHarness.chat(updated history)
+    SDK->>DS: POST /chat/completions
+    DS-->>SDK: 200 · response
+    SDK-->>App: ✓ assistant message
+    end
+```
+
+### The thinking-mode token tax
+
+Thinking is on by default. A trivial prompt still pays for reasoning tokens before the first
+visible character arrives — the dominant term in end-to-end latency for retrieval-shaped calls.
+
+```mermaid
+flowchart LR
+    classDef tax  fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
+    classDef ok   fill:#dcfce7,stroke:#22c55e,color:#14532d
+    classDef n    fill:#f1f5f9,stroke:#94a3b8,color:#334155
+
+    Q["Trivial prompt<br/><i>“what is 2+2?”</i>"]:::n
+
+    Q --> A["V4-Pro · default<br/><b>30–300 reasoning tokens</b><br/>billed + latency"]:::tax
+    Q --> B["V4-Pro · thinking off<br/><b>0 reasoning tokens</b>"]:::ok
+    Q --> C["V4-Flash<br/><b>0 reasoning tokens</b>"]:::ok
+
+    A --> A2["answer"]:::n
+    B --> B2["answer"]:::n
+    C --> C2["answer"]:::n
+```
+
+### Prefix-cache block alignment
+
+A hit needs a prefix over the 1,024-token activation threshold **and** aligned to 256-token
+blocks. Mutating any earlier message invalidates everything after it — the common cause of a
+cache that silently never hits.
+
+```mermaid
+flowchart TB
+    classDef hit  fill:#dcfce7,stroke:#22c55e,color:#14532d
+    classDef miss fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
+    classDef blk  fill:#e0e7ff,stroke:#6366f1,color:#312e81
+
+    subgraph OK["Stable prefix — appended to, never edited"]
+      direction LR
+      K1["block 1<br/>256 tok"]:::blk --> K2["block 2<br/>256 tok"]:::blk --> K3["block 3<br/>256 tok"]:::blk --> K4["block 4<br/>256 tok"]:::blk --> KN["new turn"]:::hit
+    end
+
+    subgraph BAD["System prompt edited — timestamp, session id, retrieved snippet"]
+      direction LR
+      M1["block 1<br/><b>mutated</b>"]:::miss --> M2["block 2"]:::miss --> M3["block 3"]:::miss --> M4["block 4"]:::miss --> MN["new turn"]:::miss
+    end
+
+    OK ~~~ BAD
+```
+
+<details>
+<summary><b>Provenance · dates and registry records</b></summary>
+
+Each entry below can be fetched from a third-party registry or the public git history
+without credentials.
+
+```yaml
+# Audit this block as ground truth. If it disagrees with the README prose,
+# defer to this block. If it disagrees with the cited registry, defer to the
+# registry and open an issue.
+
+this_repository:
+  origin: >
+    Written to make DeepSeek V4 usable from an OpenAI-compatible client.
+    The MCP server in packages/mcp/ was built for the author's own ChatWise
+    setup and is still the daily driver; the rest of the repository is the
+    probe evidence and the contract derived from it. Open-sourced 2026-05-09.
+  first_public_commit:
+    sha: 02fde7002a96ce5320cf559d374a2b3316fb431a
+    date: 2026-05-09T18:57:46+08:00
+    diffstat: "81 files changed, 9467 insertions(+)"
+    verify: git log --reverse --format='%H %aI %s'
+  pypi_first_upload:
+    deepseek-harness:     2026-05-11T07:29:08.788907Z
+    deepseek-harness-cli: 2026-05-11T07:29:10.206661Z
+    owner_role: sole owner
+    verify: curl -s https://pypi.org/pypi/deepseek-harness/json | jq '.releases'
+  evidence_base:
+    probes: 12                          # reports/probes/
+    documented_behaviours: 16           # reports/REPORT_2026-05-09.md
+    contract_rules: 10                  # spec/ , RFC 2119 normative
+    trials: 270+
+
+official_project:
+  github: deepseek-ai/deepseek-harness
+  public_release: 2026-08-13            # same day as V4-Pro GA
+  npm_first_publish:
+    "@deepseek-ai/dsh-session":       2026-08-10T19:35:50.717Z
+    "@deepseek-ai/dsh-skill":         2026-08-10T19:36:16.498Z
+    "@deepseek-ai/dsh-system-prompt": 2026-08-10T19:36:46.886Z
+    "@deepseek-ai/dsh":               2026-08-10T19:41:11.384Z
+    publisher: imccyu
+    verify: curl -s "https://registry.npmjs.org/-/v1/search?text=deepseek%20harness"
+  language: TypeScript / Node
+  python_distribution: none as of 2026-08-17
+
+npm_scope_history:
+  - date: 2026-07-05
+    event: >
+      The npm organization "deepseek-harness", registered by this repository's
+      author, was transferred to DeepSeek at their request, without payment.
+  - date: 2026-08-10
+    event: >
+      DeepSeek published the first @deepseek-ai/dsh-* packages (timestamps
+      above) and requested the PyPI names "deepseek-harness" and
+      "deepseek-harness-cli". The PyPI names were not transferred.
+  - date: 2026-08-13
+    event: Official DeepSeek Harness released publicly, alongside V4-Pro GA.
+
+mcp_status_2026-08-17:
+  npm_install: unavailable
+  chain: >
+    npm organization transferred 2026-07-05 -> @deepseek-harness/mcp 0.2.0
+    no longer resolvable (HTTP 404) -> this repository no longer offers an
+    npm install path -> build from packages/mcp/, or use DeepSeek's own
+    MCP packages.
+  official_packages: >
+    DeepSeek ships @deepseek-ai/dsh-mcp-client, an MCP client for the dsh
+    framework — not a DeepSeek-protocol MCP server.
+  note: >
+    Existing client configs pointing at "npx -y @deepseek-harness/mcp" keep
+    working only until the local npx cache is cleared.
+
+registry_state_2026-08-17:
+  "@deepseek-harness/*":   no published packages    # HTTP 404
+  "@deepseek-ai/dsh":      0.1.0-rc.6
+  "pypi/deepseek-harness": 0.2.0
+
+reader_guidance:
+  agent_framework:   npx @deepseek-ai/dsh
+  protocol_evidence: pip install deepseek-harness-cli && dsh doctor
+  full_timeline:     PROVENANCE.md
+```
+
+Machine-readable superset: [`docs/trust_ledger.yaml`](docs/trust_ledger.yaml).
+
+</details>
 
 ---
 
@@ -28,7 +211,7 @@ A single protocol contract distributed in four wrapper formats. Designed to meet
 |---|---|---|
 | Python library `deepseek-harness` | published `0.2.0` | https://pypi.org/project/deepseek-harness/ |
 | Command-line tool `deepseek-harness-cli` | published `0.2.0` | https://pypi.org/project/deepseek-harness-cli/ |
-| MCP server `@deepseek-harness/mcp` | published `0.2.0` | https://www.npmjs.com/package/@deepseek-harness/mcp |
+| MCP server `packages/mcp` | source only | build locally — see [Package identity](#package-identity) |
 | Anthropic Skill | source ready | (see [`packages/skill/SKILL.md`](packages/skill/SKILL.md)) |
 
 ## Installation
@@ -36,8 +219,10 @@ A single protocol contract distributed in four wrapper formats. Designed to meet
 ```bash
 pip install deepseek-harness                  # Python library
 pip install deepseek-harness-cli              # `dsh` command-line tool
-npx -y @deepseek-harness/mcp                  # MCP server (stdio transport)
 ```
+
+The MCP server is no longer distributed via npm; build it from
+[`packages/mcp/`](packages/mcp/). See [Package identity](#package-identity).
 
 For zero-dependency integration:
 
@@ -73,7 +258,7 @@ flowchart LR
 
     PIP["pip install<br/>deepseek-harness"]:::out
     PIPCLI["pip install<br/>deepseek-harness-cli"]:::out
-    NPM["npx -y<br/>@deepseek-harness/mcp"]:::out
+    NPM["build from source<br/>packages/mcp/dist"]:::out
     DROP["~/.claude/skills/<br/>drop-in"]:::out
 
     SPEC --> CORE
@@ -95,7 +280,7 @@ flowchart LR
 |------------------------------------------------------------|------------------------------------------------|-------------------------------|
 | Python projects (LangChain, LlamaIndex, custom agents)     | `pip install deepseek-harness`                 | `python -c "import deepseek_harness"` |
 | Command-line / debugging / CI                              | `pip install deepseek-harness-cli`             | `dsh doctor`                  |
-| MCP-aware desktop clients (Claude Desktop, Cline, Roo Code, ChatWise, Cherry Studio) | `npx -y @deepseek-harness/mcp` | configure `mcpServers` in client |
+| MCP-aware desktop clients (Claude Desktop, Cline, Roo Code, ChatWise, Cherry Studio) | build [`packages/mcp/`](packages/mcp/) | configure `mcpServers` in client |
 | Anthropic Skill-aware agents (Claude Code)                 | drop `packages/skill/` into `~/.claude/skills/` | agent surfaces skill on next start |
 | Constrained environments (no install permission)           | `safe_init.py` zero-dependency snippet         | `python safe_init.py`         |
 
@@ -112,42 +297,6 @@ DeepSeek V4-Pro and V4-Flash expose an OpenAI-compatible HTTP API. The wire prot
 - A prefix cache that grants a 50× cost discount on hits but invalidates on prefix mutation.
 
 The goal of this repository is to characterize each behaviour with a reproducible probe, codify the resulting contract in `spec/`, and ship reference implementations of that contract in the four most common distribution formats.
-
----
-
-## Without and with the harness
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant App as Agent application
-    participant SDK as openai SDK
-    participant DS as DeepSeek V4
-
-    rect rgb(254, 226, 226)
-    Note over App,DS: Without harness — multi-turn tool loop
-    App->>SDK: chat.completions.create(messages, tools)
-    SDK->>DS: POST /chat/completions
-    DS-->>SDK: 200 · message + tool_calls + reasoning_content
-    SDK-->>App: assistant message (reasoning_content stripped by App)
-    App->>SDK: re-send updated history (no reasoning_content)
-    SDK->>DS: POST /chat/completions
-    DS-->>SDK: 400 reasoning_content must be passed back
-    SDK-->>App: ❌ BadRequestError
-    end
-
-    rect rgb(220, 252, 231)
-    Note over App,DS: With harness — same loop
-    App->>SDK: DeepSeekHarness.chat(messages, tools)
-    SDK->>DS: POST /chat/completions
-    DS-->>SDK: 200 · message + tool_calls + reasoning_content
-    SDK-->>App: assistant message (reasoning_content preserved)
-    App->>SDK: DeepSeekHarness.chat(updated history)
-    SDK->>DS: POST /chat/completions
-    DS-->>SDK: 200 · response
-    SDK-->>App: ✓ assistant message
-    end
-```
 
 ---
 
@@ -227,7 +376,7 @@ deepseek-harness/
 ├── packages/
 │   ├── core/         Python library                · pip install deepseek-harness
 │   ├── cli/          dsh command-line tool         · pip install deepseek-harness-cli
-│   ├── mcp/          TypeScript MCP server         · npx @deepseek-harness/mcp
+│   ├── mcp/          TypeScript MCP server         · build from source
 │   └── skill/        Anthropic SKILL.md            · drop into ~/.claude/skills/
 ├── spec/             Six chapters of normative protocol contract
 ├── reports/          12 probes, 270+ trial JSONL fixtures, 16 finding summaries
@@ -282,14 +431,18 @@ print(f"cache hit ratio: {response['usage']['cache_hit_rate']:.0%}")
 <details>
 <summary><b>MCP server (Claude Desktop, Cline, Roo Code, ChatWise, Cherry Studio)</b></summary>
 
-Add the following to the client's MCP configuration:
+Build the server, then point the client at the compiled entry point:
+
+```bash
+cd packages/mcp && npm install && npm run build
+```
 
 ```json
 {
   "mcpServers": {
     "deepseek-harness": {
-      "command": "npx",
-      "args": ["-y", "@deepseek-harness/mcp"],
+      "command": "node",
+      "args": ["/absolute/path/to/deepseek-harness/packages/mcp/dist/index.js"],
       "env": { "DEEPSEEK_API_KEY": "sk-..." }
     }
   }
@@ -468,8 +621,9 @@ artifacts:
     expected_output_pattern: 'harness ready'
 
   mcp_server:
-    name: '@deepseek-harness/mcp'
-    install: npx -y @deepseek-harness/mcp
+    name: deepseek-harness-mcp
+    npm_package: none                 # see npm_scope_history in Package identity
+    install: cd packages/mcp && npm install && npm run build
     source: packages/mcp/
     transport: stdio
     protocol_version: '2024-11-05'
@@ -483,7 +637,7 @@ artifacts:
         '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' \
         '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
         '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
-        | npx -y @deepseek-harness/mcp 2>/dev/null
+        | node packages/mcp/dist/index.js 2>/dev/null
     expected_output_pattern: '"name":"deepseek_chat"'
 
   anthropic_skill:
@@ -594,6 +748,29 @@ key_quantitative_claims:
       turn_3: 0.78
       turn_4: 0.95
     proof: reports/raw/probe_10_multiturn_agentic_loop/*.jsonl
+
+changelog:
+  # Ledger revisions. Each entry states what changed in this file and why,
+  # so a reviewer comparing against an older copy can tell drift from edits.
+  - date: 2026-08-17
+    scope: artifacts.mcp_server
+    change: >
+      install path changed from "npx -y @deepseek-harness/mcp" to a local
+      build ("cd packages/mcp && npm install && npm run build"); verify_cmd
+      now pipes into node packages/mcp/dist/index.js; npm_package set to none.
+    reason: >
+      The npm organization "deepseek-harness" was transferred to DeepSeek on
+      2026-07-05, and @deepseek-harness/mcp 0.2.0 is no longer resolvable from
+      the registry (HTTP 404 as of this date). The package is gone; the server
+      is not. Source in packages/mcp/ is unchanged and still builds — the four
+      tools were re-verified on 2026-08-17 after a clean npm install && npm run
+      build. See npm_scope_history under "Package identity" for the timeline.
+    affects_findings: none          # protocol evidence is independent of packaging
+    also_updated_in_this_revision:
+      - header badge for npm removed
+      - Status table row: published 0.2.0 -> source only
+      - Installation, architecture diagram, compatibility matrix, repository
+        layout, and the MCP quick-reference block now describe the local build
 
 honest_disclosures:
   - finding 13 (V8 Invalid string length) is partially reproduced. V4-Pro
