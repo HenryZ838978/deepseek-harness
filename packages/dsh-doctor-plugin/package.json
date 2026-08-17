@@ -1,0 +1,26 @@
+{
+  "name": "@deepseek-harness/dsh-doctor-plugin",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Meta-plugin: witnesses the official DeepSeek Harness Node runtime. Everything is a plugin — including the doctor. Shells out to `dsh doctor --node` (Python) for the actual probes.",
+  "keywords": ["deepseek-harness", "dsh", "plugin", "doctor", "witness", "conformance"],
+  "author": "Henry Zhang",
+  "license": "MIT",
+  "homepage": "https://github.com/HenryZ838978/deepseek-harness",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HenryZ838978/deepseek-harness"
+  },
+  "bin": {
+    "dsh-doctor": "./bin/dsh-doctor.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dsh": {
+    "kind": "meta-plugin",
+    "witnesses": "@deepseek-ai/dsh",
+    "delegates_to": "python -m deepseek_harness_cli doctor --node",
+    "notes": "Reversal of concern: the official runtime says 'everything is a plugin'; this plugin's job is to audit the runtime that hosts it."
+  }
+}
