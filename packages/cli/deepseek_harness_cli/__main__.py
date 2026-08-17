@@ -33,8 +33,12 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="cmd")
 
     # ---- doctor ----
-    sp = sub.add_parser("doctor", help="Verify env + tiny live call.")
+    sp = sub.add_parser("doctor", help="Verify env + tiny live call. --node for official Node-stack witness probes.")
     sp.add_argument("--model", default=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro"))
+    sp.add_argument("--node", action="store_true", help="Run witness probes for the official Node harness (P1–P4).")
+    sp.add_argument("--json", action="store_true", help="Machine-readable output (--node only).")
+    sp.add_argument("--only", help="Comma-separated probe ids (--node only).")
+    sp.add_argument("--url", default="http://127.0.0.1:3080", help="dsh web url for serve-health probe.")
 
     # ---- chat ----
     sp = sub.add_parser("chat", help="Interactive REPL with guards on.")
@@ -65,6 +69,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "doctor":
+        if args.node:
+            from .doctor_node.runner import run as _run_node
+            node_argv = []
+            if args.json: node_argv.append("--json")
+            if args.only: node_argv.extend(["--only", args.only])
+            if args.url:  node_argv.extend(["--url", args.url])
+            return _run_node(node_argv)
         return _doctor(args.model)
     if args.cmd == "chat":
         return _chat(args.model, args.reasoning, args.max_tokens)
