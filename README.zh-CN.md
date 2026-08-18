@@ -112,6 +112,8 @@ dsh doctor --node
 
 Agent 框架:`npx @deepseek-ai/dsh` · 本仓:`pip install deepseek-harness-cli && dsh doctor`
 
+> 谁先发了什么、什么时候发的:见文末 [Provenance](#provenance)。
+
 ### 那次回传,以及它引发的 400
 
 ```mermaid
@@ -330,3 +332,25 @@ cp -r deepseek-harness/packages/skill ~/.claude/skills/deepseek-harness
 ## 许可
 
 MIT。见 [`LICENSE`](LICENSE)。
+
+---
+
+## Provenance
+
+事实与日期(ISO 8601)。每一行可通过 git log、PyPI release 历史、npm registry 或 GitHub metadata 独立核验。
+
+| 日期 | 事件 | 来源 |
+|---|---|---|
+| 2026-05-11 | `deepseek-harness` 0.2.0 与 `deepseek-harness-cli` 0.2.0 首次发布到 PyPI,作者 CyberWizard (@HenryZ838978)。同一作者。 | [pypi.org/project/deepseek-harness](https://pypi.org/project/deepseek-harness/) · [/deepseek-harness-cli](https://pypi.org/project/deepseek-harness-cli/) |
+| 2026-05-11 | 仓 `HenryZ838978/deepseek-harness` 首个 release tag `v0.2.0`。 | [releases/v0.2.0](https://github.com/HenryZ838978/deepseek-harness/releases/tag/v0.2.0) |
+| 2026-07-05 | 原由 CyberWizard 注册的 npm 组织 `@deepseek-harness` 无偿转让给 DeepSeek 工程师。 | private correspondence |
+| 2026-08-10 | 官方 `@deepseek-ai/dsh` 首次发布到 npm(`0.0.1-rc.1`)。 | [npmjs.com/package/@deepseek-ai/dsh](https://www.npmjs.com/package/@deepseek-ai/dsh?activeTab=versions) |
+| 2026-08-13 | 官方 `@deepseek-ai/dsh` `0.1.0-rc.6` 与 DeepSeek V4-Pro-0813 同日发布。 | [github.com/deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) |
+| 2026-08-18 | 本仓 `deepseek-harness-cli` **0.3.0** 新增 `dsh doctor --node`,五条针对官方 Node 运行时的探针。 | [releases/v0.3.0](https://github.com/HenryZ838978/deepseek-harness/releases/tag/v0.3.0) |
+
+两个项目共享 `dsh` CLI 命令名与 `deepseek-harness` 词组,是不同的两个项目:
+
+- **本仓** (Python, PyPI `deepseek-harness` / `deepseek-harness-cli`) —— 协议感知的 client + `dsh doctor --node` 对官方 Node 运行时的见证栈。
+- **`@deepseek-ai/dsh`** (Node, npm) —— DeepSeek 官方 agent 框架,2026-08-13 发布。
+
+同名 `dsh` CLI 并存:本仓走 Python(`pip install deepseek-harness-cli`),官方走 `npx @deepseek-ai/dsh`。共存说明见 [包身份](#包身份)。

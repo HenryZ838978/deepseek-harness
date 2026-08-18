@@ -118,6 +118,8 @@ tax, prefix-cache block alignment — shipped as a plug-in.
 
 Agent framework: `npx @deepseek-ai/dsh` · This: `pip install deepseek-harness-cli && dsh doctor`
 
+> Dated timeline of who published what and when: see [Provenance](#provenance) at the bottom.
+
 ### The round-trip, and the 400 it causes
 
 ```mermaid
@@ -632,6 +634,28 @@ The colour `#F25C0C` (Hermès orange) is the primary accent.
 ## License
 
 MIT. See [`LICENSE`](LICENSE).
+
+---
+
+## Provenance
+
+Tracked facts, dates in ISO 8601. Every row verifiable via git log, PyPI release history, npm registry, or GitHub metadata.
+
+| date | event | source |
+|---|---|---|
+| 2026-05-11 | `deepseek-harness` 0.2.0 and `deepseek-harness-cli` 0.2.0 first published to PyPI by CyberWizard (@HenryZ838978). Same author. | [pypi.org/project/deepseek-harness](https://pypi.org/project/deepseek-harness/) · [/deepseek-harness-cli](https://pypi.org/project/deepseek-harness-cli/) |
+| 2026-05-11 | Repo `HenryZ838978/deepseek-harness` first release tagged `v0.2.0`. | [releases/v0.2.0](https://github.com/HenryZ838978/deepseek-harness/releases/tag/v0.2.0) |
+| 2026-07-05 | The npm organization `@deepseek-harness`, previously registered by CyberWizard, was transferred uncompensated to a DeepSeek engineer. | private correspondence |
+| 2026-08-10 | Official `@deepseek-ai/dsh` first published to npm (`0.0.1-rc.1`). | [npmjs.com/package/@deepseek-ai/dsh](https://www.npmjs.com/package/@deepseek-ai/dsh?activeTab=versions) |
+| 2026-08-13 | Official `@deepseek-ai/dsh` `0.1.0-rc.6` released alongside DeepSeek V4-Pro-0813. | [github.com/deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) |
+| 2026-08-18 | This repo's `deepseek-harness-cli` **0.3.0** adds `dsh doctor --node` — five probes witnessing the official Node runtime. | [releases/v0.3.0](https://github.com/HenryZ838978/deepseek-harness/releases/tag/v0.3.0) |
+
+The two projects share the `dsh` CLI name and the phrase `deepseek-harness`. They are distinct:
+
+- **This repo** (Python, PyPI `deepseek-harness` / `deepseek-harness-cli`) — protocol-aware client + `dsh doctor --node` witness stack for the official Node runtime.
+- **`@deepseek-ai/dsh`** (Node, npm) — the official DeepSeek agent framework released 2026-08-13.
+
+Same-named `dsh` CLIs coexist: this one runs from Python (`pip install deepseek-harness-cli`), the official one from `npx @deepseek-ai/dsh`. See [Package identity](#package-identity) for coexistence notes.
 
 ---
 
