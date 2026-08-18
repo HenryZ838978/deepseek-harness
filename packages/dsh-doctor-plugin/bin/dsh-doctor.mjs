@@ -10,7 +10,7 @@
 // Usage (inside a dsh workspace or standalone):
 //   dsh-doctor            # runs the full witness suite
 //   dsh-doctor --json     # machine-readable
-//   dsh-doctor --only P1-reasoner-wire,P2-bom
+//   dsh-doctor --only P1-reasoner-skip,P2-bom
 //
 // Requires: `pip install deepseek-harness-cli` and DEEPSEEK_API_KEY in env
 // for the live probes.

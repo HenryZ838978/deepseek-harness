@@ -11,10 +11,11 @@ Delegates to the Python witness suite `dsh doctor --node`:
 
 | probe | title |
 |---|---|
-| `P1-reasoner-wire` | reasoner + tools ⇒ reasoning_content silence (wire-level, N-shot) |
+| `P1-reasoner-skip` | reasoner skips reasoning stream on trivial prompts (steerable via CoT hint) |
 | `P2-bom` | plugin manifests carry no UTF-8 BOM (#2798) |
 | `P3-serve` | dsh web fence: cross-origin data path is rejected (#2573) |
 | `P4-spill` | subprocess spill directory writable (spillAll no try/catch) |
+| `P5-seqgap` | session log has no concurrent-writer seq gap (#2571) |
 
 Each probe returns `PASS` / `WARN` / `FAIL` / `SKIP`. Non-fail exit code = 0.
 
@@ -31,7 +32,7 @@ export DEEPSEEK_API_KEY=sk-...
 ```bash
 dsh-doctor
 dsh-doctor --json
-dsh-doctor --only P1-reasoner-wire
+dsh-doctor --only P1-reasoner-skip
 dsh-doctor --url http://127.0.0.1:3080     # for P3
 ```
 

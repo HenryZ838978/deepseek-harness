@@ -5,6 +5,87 @@
 > 纯事实时间线待建 `PROVENANCE.md`。单条时间线,倒序。
 
 ---
+## 2026-08-18 (三·早) — 跨夜战果收尾 + P1 判定二次订正 + 定位口号
+
+### 跨夜跑完(6 分 11 秒,exit=0)
+
+runall.sh 12:17→12:23 UTC 一气呵成。
+
+| job | 状态 | 关键产出 |
+|---|---|---|
+| J1 P1 长采样 200 trials | ✓ | **信号极清晰,silence 与 prompt 家族强相关、与 temp 无关** |
+| J2 dsh-toolkit 侦察 | ✗ | 猜的 4 个 org 全 404,d2801.html 本次爬虫未存 —— **转手工**(打开 #2801 网页看正文链接) |
+| J3 #2571 复现 re-freshen | ✓ | 与晚上结论一致,双失败模式锁死 |
+
+### J1 汇总表(20 cells × 10 trials = 200 calls,按 skip rate 降序)
+
+| prompt 家族 | temp | skip rate | 特征 |
+|---|---|---|---|
+| `no_reason_ask` (Immediately call ...) | 1.3 | **100%** | 显式压制思考 |
+| `single_tool`   (Think briefly, then call ...) | None/0.7/1.3 | **80%** | 短提示 |
+| `no_reason_ask` | None/0.0 | 70% | |
+| `single_tool` | 0.0 | 60% | |
+| `no_reason_ask` | 0.7 | 40% | |
+| `multi_tool` (三次工具调用) | None | 20% | 复杂→自然长思考 |
+| `multi_tool` | 0.7/1.3 | 10% | |
+| `multi_tool` | 0.0 | **0%** | |
+| `reasoning_hint` (Reason step by step) | 全部 4 档 | **0%** | 显式要 CoT |
+| `cot_forced`    (First plan in reasoning ...) | 全部 4 档 | **0%** | 强要 CoT |
+
+**观察**:temp 影响约在 ±20%,prompt 家族影响 0–100%。**prompt 家族是主因,temp 是噪音。**
+
+### P1 二次订正 —— 从"wire silence"到"reasoner skip"
+
+上午条目"官方 Node 侧无 reasoning 防御"判定基于**单次采样偏差**。
+昨晚已改为多轮采样(3-shot);今早 200-trial 结果表明:
+
+> **`reasoning_content` 的缺席不是 wire bug,是模型的省思决策。**
+
+即 `deepseek-reasoner` 判定"这题不用想"就跳过 reasoning stream 直接吐 tool_call。
+harness 侧啥也没吞——**如果 llm-deepseek 里 reasoning_content 出现就转发,不出现就没有,这是正确行为**。
+
+**真正的问题**是:用户不知道自己的短提示让模型省了思考,以为是 harness 或模型抽风。
+官方 Node harness 对此**无诊断**(不出错就没提示);Python 侧 `dsh doctor --node --only P1-reasoner-skip` 应给答案。
+
+### P1 探针重写(id 也改)
+
+`P1-reasoner-wire` → **`P1-reasoner-skip`**。
+
+新逻辑:对同一 tool 做 **A/B 对照实验** —— bare prompt("Immediately call ...") vs
++CoT hint prompt("Reason step by step. Then call ..."),各 5 轮采样,报 skip rate delta。
+本地实测一次:**bare 60% skip / +CoT 0% skip / Δ=+60% → WARN**。
+这个诊断**官方 Node 侧看不到,因为它不做对照**。
+
+判定分档:
+- `bare ≥ 40% && hint ≤ 10% && Δ ≥ 30%` → **WARN "reasoner skips your prompt shape"**(有诊断价值)
+- `bare ≥ 40% && hint > 10%`              → **WARN "prompt-shape-sensitive but not fully steerable"**
+- `bare = 0 && hint = 0`                  → **PASS**(reasoner 认真思考,harness 也没吞)
+- 中间                                     → **PASS**(在噪音带)
+
+上游底稿相应作废:silence 不上稿(那是 API 层的产品决策,不是 bug),但 doctor 探针留下——
+探针的价值不是"控诉",是"替用户诊断"。这条路更硬。
+
+### 定位口号(memory 更新)
+
+> **"任何装 Node 版 DSH 的用户,`pip install deepseek-harness-cli` first,有奇效。"**
+
+奇效 = `dsh doctor --node` 一条命令给出五个官方 Node 侧看不到的观测:
+- P1 你的 prompt 让 reasoner 省思了(A/B 对照)
+- P2 你的插件 manifest 有 BOM,`dsh plugin add` 会崩(离线预检)
+- P3 你的 dsh web 在跨源 Origin 下会静默空转(fence 观测)
+- P4 你的 tmp 目录不可写,dsh 一 spill 就 exit 1(静态预检)
+- P5 你的 session 已经 seq gap,再操作一次会永久 corrupt(离线扫)
+
+**每一条都是"我知道你不知道的事"。** 这才是 Python 侧见证栈的独立价值。
+
+### 明日待做
+
+- [x] P1 探针重写并本地实测 60/0 delta
+- [ ] 更新 README(顶部加"pip install first 有奇效"卖点段)
+- [ ] 手工查 dsh-toolkit #2801 正文里的 repo 链接,决合流/分岔姿态
+- [ ] 决 push 时机:等以上两项完成再一次性推
+
+---
 ## 2026-08-17 (二·跨夜) — J3 #2571 **REPRODUCED,双失败模式** + P5 探针 + 上游底稿
 
 ### 硬结论
