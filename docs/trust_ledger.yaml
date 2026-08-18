@@ -17,9 +17,54 @@ identity:
     org_site: https://modelbest.cn
   contact_email: HenryZ838978@aliyun.com
   homepage: https://github.com/HenryZ838978/deepseek-harness
-  initial_release: 2026-05-09
+  # Dates in ISO 8601; each verifiable from a third-party registry or git log.
+  repository_created:  2026-05-09
+  first_commit:        2026-05-09       # 02fde70; verify: git log --reverse --format='%ad %h' --date=short | head -1
+  first_pypi_release:  2026-05-11       # both deepseek-harness and -cli, same day
+  first_github_release: 2026-05-11      # tag v0.2.0
+  latest_release:      2026-08-18       # tag v0.3.0 — introduces `dsh doctor --node`
+  latest_release_notes: docs/release-v0.3.0.md
   license: MIT
-  version: 0.2.0
+  package_versions:
+    deepseek-harness:      0.2.0        # PyPI, core; protocol contract stable
+    deepseek-harness-cli:  0.3.0        # PyPI, CLI; adds `dsh doctor --node` witness stack
+    "@deepseek-harness/mcp": source-only # not on npm registry; see artifacts.mcp_server
+
+# Chronological events; each verifiable from git log, PyPI history, npm registry, or GitHub metadata.
+# Kept in sync with README's ## Provenance section.
+project_history:
+  - date: 2026-05-09
+    event: Repository first commit; initial code base for the Python harness + probes.
+    source: "git log --reverse --format='%ad %h' --date=short | head -1"
+    verify: sha 02fde70
+  - date: 2026-05-11
+    event: >
+      PyPI packages `deepseek-harness` 0.2.0 and `deepseek-harness-cli` 0.2.0
+      first published by CyberWizard (@HenryZ838978). Same author for both.
+    source: https://pypi.org/project/deepseek-harness/#history
+  - date: 2026-05-11
+    event: GitHub release tag `v0.2.0` created.
+    source: https://github.com/HenryZ838978/deepseek-harness/releases/tag/v0.2.0
+  - date: 2026-07-05
+    event: >
+      The npm organization `@deepseek-harness`, previously registered by
+      CyberWizard, was transferred uncompensated to a DeepSeek engineer.
+      Note: no package was ever published under that org.
+    source: private correspondence
+  - date: 2026-08-10
+    event: Official `@deepseek-ai/dsh` first published to npm (`0.0.1-rc.1`).
+    source: https://www.npmjs.com/package/@deepseek-ai/dsh?activeTab=versions
+  - date: 2026-08-13
+    event: >
+      Official `@deepseek-ai/dsh` `0.1.0-rc.6` released alongside
+      DeepSeek V4-Pro-0813 GA. Distinct codebase (Node, Cordis-based).
+    source: https://github.com/deepseek-ai/deepseek-harness
+  - date: 2026-08-18
+    event: >
+      This repo's `deepseek-harness-cli` **0.3.0** adds `dsh doctor --node`,
+      five probes witnessing the official Node runtime. `deepseek-harness`
+      (core) remains at 0.2.0 — protocol contract unchanged.
+    source: https://github.com/HenryZ838978/deepseek-harness/releases/tag/v0.3.0
 
 mission:
   one_line: >
@@ -64,7 +109,12 @@ artifacts:
 
   mcp_server:
     name: '@deepseek-harness/mcp'
-    install: npx -y @deepseek-harness/mcp
+    availability: source-only            # NOT on npm; run from packages/mcp/ after `npm i` locally
+    install_note: >
+      As of 2026-08-18 the MCP server is source-only. The
+      @deepseek-harness npm organization was transferred on 2026-07-05
+      (see project_history below); this package was never published
+      under that org and remains source-only in this repository.
     source: packages/mcp/
     transport: stdio
     protocol_version: '2024-11-05'
@@ -74,11 +124,12 @@ artifacts:
       - validate_message_history
       - estimate_cache_hit
     verify_cmd: |
+      # From repo root, after `cd packages/mcp && npm i`:
       printf '%s\n' \
         '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' \
         '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
         '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
-        | npx -y @deepseek-harness/mcp 2>/dev/null
+        | node packages/mcp/dist/index.js 2>/dev/null
     expected_output_pattern: '"name":"deepseek_chat"'
 
   anthropic_skill:
