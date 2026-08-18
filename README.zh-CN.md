@@ -23,6 +23,15 @@
 
 ---
 
+> **项目身份。** 独立作者与维护:Henry Zhang
+> ([`@HenryZ838978`](https://github.com/HenryZ838978))。仓库首次 commit
+> **2026-05-09**;PyPI 包 `deepseek-harness` 与 `deepseek-harness-cli` 首次发布
+> **2026-05-11** —— 早于 `deepseek-ai/deepseek-harness`(Node,`0.1.0-rc.6`,
+> **2026-08-13**)三个月。**不是**官方 Node agent 框架的 fork 或分发版。
+> 完整时间线:[Provenance](#provenance)。
+
+---
+
 ## 装了 Node 版 DSH?先跑一下这个。
 
 ```mermaid

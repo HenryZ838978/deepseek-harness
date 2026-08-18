@@ -23,6 +23,15 @@ A single protocol contract distributed in four wrapper formats. Designed to meet
 
 ---
 
+> **Project identity.** Independently authored and maintained by Henry Zhang
+> ([`@HenryZ838978`](https://github.com/HenryZ838978)). Repository first commit
+> **2026-05-09**; PyPI packages `deepseek-harness` and `deepseek-harness-cli` first
+> published **2026-05-11** — three months before `deepseek-ai/deepseek-harness`
+> (Node, `0.1.0-rc.6`, **2026-08-13**). Not a fork or distribution of the official
+> Node agent framework. Full timeline: [Provenance](#provenance).
+
+---
+
 ## Installed the Node harness? Run this first.
 
 ```mermaid
