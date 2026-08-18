@@ -23,6 +23,31 @@
 
 ---
 
+## 装了 Node 版 DSH?先跑一下这个。
+
+```bash
+pip install deepseek-harness-cli
+export DEEPSEEK_API_KEY=sk-...
+dsh doctor --node
+```
+
+五条针对 [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)(官方 Node 运行时)的探针 —— 每一条都在报告官方自家工具**看不到**的事:
+
+| 探针 | 它告诉你的、官方 Node 侧不会告诉你的 |
+|---|---|
+| **P1-reasoner-skip** | 你的 prompt 让 `deepseek-reasoner` 跳过了自己的思考流。做一次 A/B(裸 prompt vs 加 CoT hint),报 skip rate 差值。 |
+| **P2-bom**           | 你本地有带 UTF-8 BOM 的插件 `package.json`,`dsh plugin add` 会崩([#2798](https://github.com/deepseek-ai/deepseek-harness/discussions/2798))。离线扫。 |
+| **P3-serve**         | 你的 `dsh web` fence 在非 loopback Origin 下会**静默拒绝**数据层,页面永停在选工作区([#2573](https://github.com/deepseek-ai/deepseek-harness/discussions/2573))。 |
+| **P4-spill**         | 你的 tmp 目录不可写 —— 子进程 spill 一发就 `exit 1`(`spillAll()` 的 `openSync/writeSync` 无 try/catch)。 |
+| **P5-seqgap**        | 你的 session log 已经有 concurrent-writer seq gap([#2571](https://github.com/deepseek-ai/deepseek-harness/discussions/2571))。两种失败模式:静默截断,或下次 `turn/end` 触发永久 corrupt。 |
+
+每一条 WARN/FAIL 都给出具体修复。这个 doctor **不是**官方运行时的竞品,是它的**证人**。
+沿用同一个 `dsh` 名字,是因为对方自己讲"一切皆插件"—— 这就是其中一个。
+
+> 与 [`@simon-world/dsh-toolkit`](https://github.com/SIMON-WORLD/dsh-toolkit) 的 `doctor` **不是同一个东西**(那个是 Node 侧,查 Node 版本 / koffi 锁定 / 端口 / ASCII 路径 / 沙箱)。两者互补:他家答"装得上跑得起来吗",我们答"跑起来之后会在你不知道的时候咬你一口"。
+
+---
+
 ## 包身份
 
 `dsh` 同时也是 DeepSeek 官方 agent 框架的命令名

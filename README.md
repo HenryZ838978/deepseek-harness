@@ -23,6 +23,37 @@ A single protocol contract distributed in four wrapper formats. Designed to meet
 
 ---
 
+## Installed the Node harness? Run this first.
+
+```bash
+pip install deepseek-harness-cli
+export DEEPSEEK_API_KEY=sk-...
+dsh doctor --node
+```
+
+Five probes for [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)
+(the official Node runtime) — each reports something its own tooling does not:
+
+| probe | what it tells you the Node stack won't |
+|---|---|
+| **P1-reasoner-skip** | Your prompt shape makes `deepseek-reasoner` skip its reasoning stream. Runs an A/B (bare prompt vs. +CoT-hint), reports the skip-rate delta. |
+| **P2-bom**           | You have a plugin `package.json` with a UTF-8 BOM — `dsh plugin add` will crash on it ([#2798](https://github.com/deepseek-ai/deepseek-harness/discussions/2798)). Offline scan. |
+| **P3-serve**         | Your `dsh web` fence silently rejects the data layer under a non-loopback Origin ([#2573](https://github.com/deepseek-ai/deepseek-harness/discussions/2573)). |
+| **P4-spill**         | Your tmp directory is unwritable — the subprocess spill path will `exit 1` (`spillAll()` has no try/catch around `openSync/writeSync`). |
+| **P5-seqgap**        | Your session log already has a concurrent-writer seq gap ([#2571](https://github.com/deepseek-ai/deepseek-harness/discussions/2571)). Two failure modes: silent truncation, or permanent corrupt on the next `turn/end`. |
+
+Each finding is a WARN or FAIL with a concrete fix. The doctor is not a
+competitor to the official runtime — it's a witness. Wraps around the same
+`dsh` name because the Node stack advertises "everything is a plugin";
+this is one.
+
+> Not the same tool as [`@simon-world/dsh-toolkit`](https://github.com/SIMON-WORLD/dsh-toolkit)
+> `doctor` (Node-side, checks Node version / koffi pin / ports / ASCII paths /
+> sandbox). The two are complementary: theirs answers "will it install and
+> start", ours answers "what will silently bite you after it does".
+
+---
+
 ## Package identity
 
 `dsh` is also the command name of the official DeepSeek agent framework
