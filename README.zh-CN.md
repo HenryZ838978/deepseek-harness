@@ -25,6 +25,59 @@
 
 ## 装了 Node 版 DSH?先跑一下这个。
 
+```mermaid
+flowchart LR
+    classDef fail  fill:#fee2e2,stroke:#ef4444,color:#7f1d1d,font-weight:bold
+    classDef sym   fill:#fef3c7,stroke:#f59e0b,color:#78350f
+    classDef fix   fill:#dcfce7,stroke:#22c55e,color:#14532d,font-weight:bold
+
+    F1["短 prompt 交给<br/>deepseek-reasoner"]:::fail
+    F2["插件 package.json<br/>存成 UTF-8 BOM"]:::fail
+    F3["用非 loopback 主机名<br/>访问 dsh web"]:::fail
+    F4["tmp 目录<br/>不可写"]:::fail
+    F5["两个 dsh 进程<br/>指向同一 workspace"]:::fail
+
+    S1["思考模式历史<br/><i>看起来不完整</i>"]:::sym
+    S2["<code>dsh plugin add</code><br/>JSON.parse 崩"]:::sym
+    S3["页面永停在<br/>'选择工作区'<br/><i>无 console 报错</i>"]:::sym
+    S4["整个 harness<br/>半路 <code>exit 1</code>"]:::sym
+    S5["session 打不开,<br/>或加载后<br/><i>静默少了几条</i>"]:::sym
+
+    D1["<b>P1-reasoner-skip</b><br/>裸 60% · +hint 0% · Δ+60%"]:::fix
+    D2["<b>P2-bom</b><br/>1/N 个 manifest 带 BOM"]:::fix
+    D3["<b>P3-serve</b><br/>evil Origin 下 mux 403"]:::fix
+    D4["<b>P4-spill</b><br/>/tmp 探针 EACCES"]:::fix
+    D5["<b>P5-seqgap</b><br/>第 N 行 seq gap,等 turn/end 引爆"]:::fix
+
+    F1 --> S1 --> D1
+    F2 --> S2 --> D2
+    F3 --> S3 --> D3
+    F4 --> S4 --> D4
+    F5 --> S5 --> D5
+
+    subgraph L1["失效原因"]
+      F1
+      F2
+      F3
+      F4
+      F5
+    end
+    subgraph L2["你看到的症状"]
+      S1
+      S2
+      S3
+      S4
+      S5
+    end
+    subgraph L3["dsh doctor --node · 一行诊断"]
+      D1
+      D2
+      D3
+      D4
+      D5
+    end
+```
+
 ```bash
 pip install deepseek-harness-cli
 export DEEPSEEK_API_KEY=sk-...

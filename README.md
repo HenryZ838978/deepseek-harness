@@ -25,6 +25,59 @@ A single protocol contract distributed in four wrapper formats. Designed to meet
 
 ## Installed the Node harness? Run this first.
 
+```mermaid
+flowchart LR
+    classDef fail  fill:#fee2e2,stroke:#ef4444,color:#7f1d1d,font-weight:bold
+    classDef sym   fill:#fef3c7,stroke:#f59e0b,color:#78350f
+    classDef fix   fill:#dcfce7,stroke:#22c55e,color:#14532d,font-weight:bold
+
+    F1["Short prompt on<br/>deepseek-reasoner"]:::fail
+    F2["Plugin package.json<br/>saved with UTF-8 BOM"]:::fail
+    F3["dsh web hit via<br/>non-loopback hostname"]:::fail
+    F4["tmp dir<br/>unwritable"]:::fail
+    F5["Two dsh processes<br/>on one workspace"]:::fail
+
+    S1["Thinking-mode history<br/><i>looks incomplete</i>"]:::sym
+    S2["<code>dsh plugin add</code><br/>crashes on JSON.parse"]:::sym
+    S3["Page hangs on<br/>'Select a workspace'<br/><i>no console error</i>"]:::sym
+    S4["Whole harness<br/><code>exit 1</code> mid-turn"]:::sym
+    S5["Session won't load,<br/>or loads with<br/><i>silently fewer events</i>"]:::sym
+
+    D1["<b>P1-reasoner-skip</b><br/>bare 60% · +hint 0% · Δ+60%"]:::fix
+    D2["<b>P2-bom</b><br/>1/N manifests → BOM"]:::fix
+    D3["<b>P3-serve</b><br/>mux 403 under evil Origin"]:::fix
+    D4["<b>P4-spill</b><br/>EACCES on /tmp probe"]:::fix
+    D5["<b>P5-seqgap</b><br/>seq gap at line N, awaiting turn/end"]:::fix
+
+    F1 --> S1 --> D1
+    F2 --> S2 --> D2
+    F3 --> S3 --> D3
+    F4 --> S4 --> D4
+    F5 --> S5 --> D5
+
+    subgraph L1["failure mode"]
+      F1
+      F2
+      F3
+      F4
+      F5
+    end
+    subgraph L2["what you see"]
+      S1
+      S2
+      S3
+      S4
+      S5
+    end
+    subgraph L3["dsh doctor --node · one line"]
+      D1
+      D2
+      D3
+      D4
+      D5
+    end
+```
+
 ```bash
 pip install deepseek-harness-cli
 export DEEPSEEK_API_KEY=sk-...
