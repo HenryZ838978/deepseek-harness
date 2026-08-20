@@ -28,7 +28,10 @@ A single protocol contract distributed in four wrapper formats. Designed to meet
 > **2026-05-09**; PyPI packages `deepseek-harness` and `deepseek-harness-cli` first
 > published **2026-05-11** — three months before `deepseek-ai/deepseek-harness`
 > (Node, `0.1.0-rc.6`, **2026-08-13**). Not a fork or distribution of the official
-> Node agent framework. Full timeline: [Provenance](#provenance).
+> Node agent framework.
+>
+> - **What broke in each official rc release, one line per row:** [HISTORY.md](HISTORY.md)
+> - **Full dated timeline:** [Provenance](#provenance)
 
 ---
 

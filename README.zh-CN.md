@@ -28,7 +28,9 @@
 > **2026-05-09**;PyPI 包 `deepseek-harness` 与 `deepseek-harness-cli` 首次发布
 > **2026-05-11** —— 早于 `deepseek-ai/deepseek-harness`(Node,`0.1.0-rc.6`,
 > **2026-08-13**)三个月。**不是**官方 Node agent 框架的 fork 或分发版。
-> 完整时间线:[Provenance](#provenance)。
+>
+> - **官方每个 rc 版本各错在哪儿(每行一条):** [HISTORY.md](HISTORY.md)
+> - **完整日期时间线:** [Provenance](#provenance)
 
 ---
 
