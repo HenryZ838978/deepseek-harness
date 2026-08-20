@@ -36,7 +36,10 @@ def _load_registry() -> list[Probe]:
     from .p3_serve_health import PROBE as P3
     from .p4_spill_dir import PROBE as P4
     from .p5_seqgap import PROBE as P5
-    return [P1, P2, P3, P4, P5]
+    from .p6_subagent_env_scrub import PROBE as P6
+    from .p7_subagent_codex_preflight import PROBE as P7
+    from .p8_multimodal_preflight import PROBE as P8
+    return [P1, P2, P3, P4, P5, P6, P7, P8]
 
 
 REGISTRY = _load_registry

@@ -149,8 +149,13 @@ def _run(_ctx: dict) -> Verdict:
             "fail",
             f"{len(ev['corrupt'])} session log(s) will throw on load (permanent corrupt)",
             detail="These sessions cannot be reopened. Likely cause: two dsh "
-                   "processes wrote the same session dir concurrently. See "
-                   "#2571 and our overnight/j3/notes.md.",
+                   "processes wrote the same session dir concurrently, OR "
+                   "an Agent Teams (rc.8 `@deepseek-ai/dsh-experimental-agent-team`) "
+                   "run where multiple subagents appended to the same Lead session log. "
+                   "The team package's README self-declares "
+                   "'not cross-process exactly-once delivery' and 'no shared "
+                   "mailbox transaction across processes'. Root cause is the "
+                   "same as #2571.",
             evidence=ev,
         )
     if ev["truncated"]:
@@ -167,6 +172,6 @@ def _run(_ctx: dict) -> Verdict:
 
 PROBE = Probe(
     id="P5-seqgap",
-    title="session log has no concurrent-writer seq gap (#2571)",
+    title="session / Agent Teams log has no concurrent-writer seq gap (#2571, worsened by rc.8 Teams)",
     run=_run,
 )
