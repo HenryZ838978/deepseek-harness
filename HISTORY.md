@@ -6,6 +6,12 @@ fix is always `pip install deepseek-harness-cli && dsh doctor --node`.
 
 ---
 
+## 2026-05-11 · `deepseek-harness` **0.2.0** (this repo, PyPI; first commit 2026-05-09)
+
+- Pure harness for DeepSeek V4-Pro / V4-Flash: 12 probes, 16 documented protocol behaviours, 270+ trials, one contract ([`spec/`](spec/), RFC 2119 normative) in four wrapper formats. Predates `@deepseek-ai/dsh` by three months. → PyPI: `pip install deepseek-harness` / `pip install deepseek-harness-cli`. Full timeline: [Provenance](README.md#provenance).
+
+---
+
 ## 2026-08-13 · `@deepseek-ai/dsh` **0.1.0-rc.6** (GA, released with V4-Pro-0813)
 
 - **`spillAll()` has no try/catch around `openSync`/`writeSync`** — the sibling `discardSpill()` is guarded, this one is not. EACCES / ENOSPC on the tmp dir escapes the `data` callback and takes the whole harness to `exit 1`. `dsh-subprocess-local/src/spawn.ts`. → **`dsh doctor --node --only P4-spill`**
