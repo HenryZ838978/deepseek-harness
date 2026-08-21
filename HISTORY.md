@@ -38,6 +38,18 @@ fix is always `pip install deepseek-harness-cli && dsh doctor --node`.
 
 ---
 
+## 2026-08-21 · `@deepseek-ai/dsh` **0.1.1-rc.1** (172 commits since rc.8; `next` tag; rc.8 skipped `latest`)
+
+**Of the 8 defects `dsh doctor --node` covers, 0 fixed in this release.** Source diff confirms `spillAll` / `stripBOM` / `api-request-trust` `host ===` / `session-persistence-jsonl` flock / `SENSITIVE_ENV_PATTERN` / `subagent-codex/run.ts:44` `readFileSync` / `adapter.ts:245` throw-after-append are all byte-identical to rc.8. Our four upstream Discussion replies (#2571 / #2573 / #2751 / #2798) posted 2026-08-18 also received no engagement.
+
+- **FIXED (in-release; independently observed):** `bwrap` PID namespace escape via `procfs`. `packages/sandbox/sandbox-local/src/profiles.ts:17` now passes `--unshare-pid --proc /proc`. Not a defect our doctor covered; noted for the record.
+- **Still present, per grep on tag `dsh-v0.1.1-rc.1`:** P2-bom · P3-serve · P4-spill · P5-seqgap · P6-subagent-env-scrub · P7-subagent-codex-preflight · P8-multimodal-preflight. → **`dsh doctor --node`**
+- **New: `packages/credentials/credentials-local` uses `withFileLock` from `@deepseek-ai/dsh-atomic-write`.** The same monorepo now uses cross-process file locking in one subsystem — and continues to not use it in `session/session-persistence-jsonl` (P5). The absence of locking on session logs is a subsystem-level choice, not a codebase-wide missing primitive.
+- **New: Vision model published (`deepseek-v4-flash-vision-exp`).** `packages/llm/llm-deepseek/src/index.ts:55-58` adds it to the default advisory catalog. Any user who selects the model **without** mounting `@deepseek-ai/dsh-attachment-local` in their composition hits the P8 half-turn commit on the first image. rc.1 is the first release that recommends this model out of the box. → **`dsh doctor --node --only P8-multimodal-preflight`** (existing probe; scope now widened)
+- **New: credentials-local README self-declares "That is discretion, not a boundary. A deployment that must keep provider keys away from its own agent cannot get there with file permissions".** Same-UID processes (including the model's own sandboxed shell) can read the credentials file. OS-keychain provider is "deferred". Consistent with the rc.8 team package README pattern: disclose a boundary limitation, ship anyway, defer.
+
+---
+
 ## How to read this file
 
 - **All entries are code-referenceable.** Every claim above cites a specific file or a specific defect id from the official `deepseek-ai/deepseek-harness` GitHub Discussions.
