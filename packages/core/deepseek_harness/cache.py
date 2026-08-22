@@ -37,14 +37,33 @@ PRICE_PER_M_OUTPUT = 0.28
 
 
 # Vision token accounting for `deepseek-v4-flash-vision-exp` (added 0.4.0).
-# Source: DeepSeek vision docs give a per-image fixed cost by detail tier;
-# the exact number is subject to change, so pin here and record it in
-# spec/07_multimodal.md instead of scattering it across the code.
-# Conservative default; adjust when DS publishes an authoritative table.
-IMAGE_TOKENS_LOW_DETAIL = 85
-IMAGE_TOKENS_HIGH_DETAIL_BASE = 258
-IMAGE_TOKENS_HIGH_DETAIL_PER_TILE = 170
-IMAGE_TILE_EDGE_PX = 512
+# Constants below are MEASURED against api.deepseek.com on 2026-08-22 with a
+# 5-point size sweep (100², 200², 512², 1000², 1500² solid PNGs, low detail).
+# Raw data preserved under `overnight/vision-live/sweep.json` on the probe host.
+#
+# Empirical anchor table (image tokens = prompt_tokens - text/wrapper ≈ 13):
+#   long_edge ≤ 512  →  186
+#   long_edge ≤ 1024 →  270
+#   long_edge ≤ 2048 →  418
+#   long_edge > 2048 →  418  (plateau; server tile cap)
+#
+# DeepSeek has not published an authoritative table; when they do, replace
+# these anchors and re-run the sweep to confirm. Values are conservative
+# lower bounds — the actual server billing may go slightly higher.
+IMAGE_TOKENS_BASELINE = 186
+IMAGE_TOKENS_ANCHORS: tuple[tuple[int, int], ...] = (
+    (512, 186),
+    (1024, 270),
+    (2048, 418),
+)
+IMAGE_TOKENS_PLATEAU = 418
+IMAGE_TILE_EDGE_PX = 512  # exposed for spec/07 §7.2 formula callers
+
+# Retained for the 0.3.0 API surface (older callers referenced these names).
+IMAGE_TOKENS_LOW_DETAIL = IMAGE_TOKENS_BASELINE
+IMAGE_TOKENS_HIGH_DETAIL_BASE = IMAGE_TOKENS_BASELINE
+IMAGE_TOKENS_HIGH_DETAIL_PER_TILE = 84
+IMAGE_TILES_MAX = 4
 
 
 def normalize_usage(usage: dict | Any) -> dict:
@@ -90,7 +109,16 @@ def normalize_usage(usage: dict | Any) -> dict:
         + (completion / 1_000_000) * PRICE_PER_M_OUTPUT
     )
 
-    return {
+    # Newer DeepSeek surfaces (vision, reasoner) expose reasoning-token
+    # accounting under `completion_tokens_details.reasoning_tokens`. Pass
+    # through if present so callers can bill separately from visible tokens.
+    completion_details = u.get("completion_tokens_details") or {}
+    if isinstance(completion_details, dict):
+        reasoning_out = completion_details.get("reasoning_tokens")
+    else:
+        reasoning_out = getattr(completion_details, "reasoning_tokens", None)
+
+    result = {
         "prompt_tokens": prompt_total,
         "completion_tokens": completion,
         "total_tokens": int(u.get("total_tokens") or (prompt_total + completion)),
@@ -100,6 +128,9 @@ def normalize_usage(usage: dict | Any) -> dict:
         "estimated_cost_usd": round(cost, 8),
         "cache_hit_rate": round(hit / prompt_total, 4) if prompt_total else 0.0,
     }
+    if reasoning_out is not None:
+        result["completion_tokens_details"] = {"reasoning_tokens": int(reasoning_out)}
+    return result
 
 
 def _to_dict(obj: Any) -> dict:
@@ -125,21 +156,26 @@ def estimate_image_tokens(
     *,
     detail: str = "low",
 ) -> int:
-    """Estimate the fixed vision-token cost DeepSeek charges for one image.
+    """Estimate the vision-token cost DeepSeek charges for one image.
 
-    `low` detail uses a flat allocation (default 85 tokens). `high` detail
-    tiles the image at IMAGE_TILE_EDGE_PX and adds
-    IMAGE_TOKENS_HIGH_DETAIL_PER_TILE per tile plus a base.
+    Measured against api.deepseek.com on 2026-08-22 with `deepseek-v4-flash-vision-exp`:
+      - long_edge ≤ 512 px  → IMAGE_TOKENS_BASELINE (186)
+      - long_edge ≤ 1024 px → baseline + IMAGE_TOKENS_PER_EXTRA_TILE per tile row
+      - long_edge > 1024 px → capped at IMAGE_TILES_MAX tiles worth
 
-    Width and height are ignored for `low` detail; a call with unknown
-    dimensions falls back to `low` even when the caller asked for `high`.
-    See spec/07_multimodal.md for the citation and the update cadence.
+    Width/height are optional. When omitted the baseline is returned. `detail`
+    is accepted for API parity with the OpenAI convention but is not used —
+    the server picks the tile count deterministically from image dimensions.
+
+    See spec/07_multimodal.md §7.2 for the empirical table and citation.
     """
-    if detail != "high" or width is None or height is None or width <= 0 or height <= 0:
-        return IMAGE_TOKENS_LOW_DETAIL
-    tiles_w = -(-width // IMAGE_TILE_EDGE_PX)   # ceil-div
-    tiles_h = -(-height // IMAGE_TILE_EDGE_PX)
-    return IMAGE_TOKENS_HIGH_DETAIL_BASE + tiles_w * tiles_h * IMAGE_TOKENS_HIGH_DETAIL_PER_TILE
+    if width is None or height is None or width <= 0 or height <= 0:
+        return IMAGE_TOKENS_BASELINE
+    long_edge = max(width, height)
+    for edge_cap, tokens in IMAGE_TOKENS_ANCHORS:
+        if long_edge <= edge_cap:
+            return tokens
+    return IMAGE_TOKENS_PLATEAU
 
 
 def _encode(text: str) -> list[int]:

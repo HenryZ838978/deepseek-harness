@@ -28,12 +28,23 @@ Data URLs of the form `data:<mediaType>;base64,<payload>` are accepted; HTTP(S) 
 
 ## §7.2 Image token accounting
 
-DeepSeek charges a fixed vision-token cost per image, added to the request's `prompt_tokens`. Two detail tiers exist:
+DeepSeek charges vision tokens against `usage.prompt_tokens` and (for reasoner-capable models) reports the model's own thinking budget separately under `usage.completion_tokens_details.reasoning_tokens`.
 
-- **Low detail** — flat allocation. `estimate_image_tokens(detail="low")` returns `IMAGE_TOKENS_LOW_DETAIL` (default 85).
-- **High detail** — tiled at `IMAGE_TILE_EDGE_PX` (default 512). Cost = `IMAGE_TOKENS_HIGH_DETAIL_BASE + ceil(w/512) * ceil(h/512) * IMAGE_TOKENS_HIGH_DETAIL_PER_TILE`.
+**Measured baseline** against `api.deepseek.com` on 2026-08-22, `deepseek-v4-flash-vision-exp`, five-point size sweep with solid orange PNGs, `max_tokens=5`, no CoT hint:
 
-These constants are conservative defaults; DeepSeek has not published an authoritative per-model table as of writing. Adapters MAY override via a model-specific catalog entry. The reason for pinning the constants in code (rather than reading a live table) is that cache-hit estimation MUST be deterministic across process starts — a table refresh cannot silently move the token count.
+| image size | `prompt_tokens` | derived image cost | notes |
+|---|---|---|---|
+| 100×100 | 199 | ~186 | baseline (long_edge ≤ 512) |
+| 200×200 | 199 | ~186 | baseline |
+| 512×512 | 283 | ~270 | one extra tile (baseline + ~84) |
+| 1000×1000 | 431 | ~418 | more tiles (baseline + 3 × 84) |
+| 1500×1500 | 431 | ~418 | **plateau** — server caps tile count |
+
+Raw payloads and full responses under `overnight/vision-live/sweep.json` on the probe host. `estimate_image_tokens(w, h)` in this package reproduces the piecewise pattern with `IMAGE_TOKENS_BASELINE = 186`, `IMAGE_TOKENS_PER_EXTRA_TILE = 84`, `IMAGE_TILE_EDGE_PX = 512`, `IMAGE_TILES_MAX = 4`.
+
+**`detail` parameter.** The OpenAI convention distinguishes `low` / `high` detail; DeepSeek's endpoint does not honour this hint and picks the tile count deterministically from image dimensions. The parameter is accepted for API parity and does not affect the returned estimate.
+
+**Constants are pinned in code.** Cache-hit estimation MUST be reproducible across process starts; a live table lookup cannot silently move the token count. When DeepSeek publishes an authoritative per-model schedule, replace the constants in `cache.py` and re-run the sweep to confirm.
 
 ## §7.3 Prefix cache with images
 
