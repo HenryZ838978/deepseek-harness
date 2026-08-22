@@ -12,6 +12,12 @@ fix is always `pip install deepseek-harness-cli && dsh doctor --node`.
 
 ---
 
+## 2026-08-22 · `deepseek-harness` **0.3.0** / `deepseek-harness-cli` **0.4.0** (this repo, PyPI)
+
+- Multimodal contract added: `spec/07_multimodal.md`, `assert_multimodal_shape`, `estimate_image_tokens`, canonical image-URL placeholder in the cache-hit estimator, `deepseek-v4-flash-vision-exp` in the catalog. Text-only path unchanged. Tracks `@deepseek-ai/dsh` 0.1.1-rc.2's default vision model without depending on it. → PyPI: `pip install -U deepseek-harness deepseek-harness-cli`.
+
+---
+
 ## 2026-08-13 · `@deepseek-ai/dsh` **0.1.0-rc.6** (GA, released with V4-Pro-0813)
 
 - **`spillAll()` has no try/catch around `openSync`/`writeSync`** — the sibling `discardSpill()` is guarded, this one is not. EACCES / ENOSPC on the tmp dir escapes the `data` callback and takes the whole harness to `exit 1`. `dsh-subprocess-local/src/spawn.ts`. → **`dsh doctor --node --only P4-spill`**

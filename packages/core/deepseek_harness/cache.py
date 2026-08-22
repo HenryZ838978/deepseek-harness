@@ -36,6 +36,17 @@ PRICE_PER_M_INPUT_HIT = 0.0028
 PRICE_PER_M_OUTPUT = 0.28
 
 
+# Vision token accounting for `deepseek-v4-flash-vision-exp` (added 0.4.0).
+# Source: DeepSeek vision docs give a per-image fixed cost by detail tier;
+# the exact number is subject to change, so pin here and record it in
+# spec/07_multimodal.md instead of scattering it across the code.
+# Conservative default; adjust when DS publishes an authoritative table.
+IMAGE_TOKENS_LOW_DETAIL = 85
+IMAGE_TOKENS_HIGH_DETAIL_BASE = 258
+IMAGE_TOKENS_HIGH_DETAIL_PER_TILE = 170
+IMAGE_TILE_EDGE_PX = 512
+
+
 def normalize_usage(usage: dict | Any) -> dict:
     """Return a dict that has BOTH field shapes filled in.
 
@@ -106,6 +117,29 @@ def _to_dict(obj: Any) -> dict:
 # ---------------------------------------------------------------------------
 # Pre-flight estimator
 # ---------------------------------------------------------------------------
+
+
+def estimate_image_tokens(
+    width: int | None = None,
+    height: int | None = None,
+    *,
+    detail: str = "low",
+) -> int:
+    """Estimate the fixed vision-token cost DeepSeek charges for one image.
+
+    `low` detail uses a flat allocation (default 85 tokens). `high` detail
+    tiles the image at IMAGE_TILE_EDGE_PX and adds
+    IMAGE_TOKENS_HIGH_DETAIL_PER_TILE per tile plus a base.
+
+    Width and height are ignored for `low` detail; a call with unknown
+    dimensions falls back to `low` even when the caller asked for `high`.
+    See spec/07_multimodal.md for the citation and the update cadence.
+    """
+    if detail != "high" or width is None or height is None or width <= 0 or height <= 0:
+        return IMAGE_TOKENS_LOW_DETAIL
+    tiles_w = -(-width // IMAGE_TILE_EDGE_PX)   # ceil-div
+    tiles_h = -(-height // IMAGE_TILE_EDGE_PX)
+    return IMAGE_TOKENS_HIGH_DETAIL_BASE + tiles_w * tiles_h * IMAGE_TOKENS_HIGH_DETAIL_PER_TILE
 
 
 def _encode(text: str) -> list[int]:
@@ -179,14 +213,29 @@ def _serialize_messages(messages: list[dict]) -> str:
     Layout mirrors OpenAI chat-completions JSON ordering: role → content → tool_calls
     → tool_call_id → reasoning_content. ANY field reorder by your agent code will
     bust the prefix.
+
+    Multimodal content parts are canonicalised so the cache estimator sees a
+    stable, short placeholder per image — otherwise a 4 MiB base64 data URL
+    would dominate the token count and mask real prefix differences. The image
+    placeholder is content-addressed (first 12 hex chars of sha256(url)) so
+    the same image at the same position still matches byte-for-byte.
     """
+    import hashlib
     parts: list[str] = []
     for msg in messages:
         parts.append(f"<role>{msg.get('role', '')}</role>")
         content = msg.get("content")
         if isinstance(content, list):
             for c in content:
-                parts.append(f"<part>{c}</part>")
+                if isinstance(c, dict) and c.get("type") == "image_url":
+                    iu = c.get("image_url") or {}
+                    url = iu.get("url") or ""
+                    fp = hashlib.sha256(url.encode()).hexdigest()[:12] if url else "empty"
+                    parts.append(f"<img>{fp}</img>")
+                elif isinstance(c, dict) and c.get("type") == "text":
+                    parts.append(f"<part>{c.get('text', '')}</part>")
+                else:
+                    parts.append(f"<part>{c}</part>")
         elif content:
             parts.append(f"<content>{content}</content>")
         for tc in msg.get("tool_calls") or []:

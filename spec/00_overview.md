@@ -16,6 +16,7 @@ Sections:
 | 4 | prefix-cache rules + field-name mismatch | `04_cache_hit.md` |
 | 5 | streaming chunk shapes + finish_reason semantics | `05_streaming_finish_reason.md` |
 | 6 | context-window boundaries (independent finding) | `06_context_limits.md` |
+| 7 | multimodal (vision) contract, added 2026-08-22 | `07_multimodal.md` |
 
 Each clause uses the keywords MUST / SHOULD / MAY in the RFC 2119 sense.
 
