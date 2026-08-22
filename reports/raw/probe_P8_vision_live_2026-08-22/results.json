@@ -1,0 +1,43 @@
+[
+  {
+    "case": "A_baseline",
+    "http": 200,
+    "elapsed_s": 1.11,
+    "total_frames": 65,
+    "reasoning_frames": 40,
+    "tool_call_frames": 0,
+    "content_frames": 23,
+    "delta_keys": ["content", "reasoning_content", "role"],
+    "finish": "stop",
+    "usage": {
+      "prompt_tokens": 207,
+      "completion_tokens": 64,
+      "total_tokens": 271,
+      "prompt_tokens_details": {"cached_tokens": 0},
+      "completion_tokens_details": {"reasoning_tokens": 40},
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 207
+    },
+    "content_snippet": "The image shows a solid orange background with the white text \"DSH VISION TEST\" centered in the middle."
+  },
+  {
+    "case": "B_image_on_assistant",
+    "http": 400,
+    "body": "{\"error\":{\"message\":\"Image in assistant message is not supported\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"invalid_request_error\"}}"
+  },
+  {
+    "case": "C_wrong_model_deepseek-chat",
+    "http": 400,
+    "body": "{\"error\":{\"message\":\"This model does not support image\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"invalid_request_error\"}}"
+  },
+  {
+    "case": "D_empty_url",
+    "http": 400,
+    "body": "{\"error\":{\"message\":\".messages[0]: Unsupported image_url format\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"invalid_request_error\"}}"
+  },
+  {
+    "case": "E_vl2_id",
+    "http": 400,
+    "body": "{\"error\":{\"message\":\"The supported API model names are deepseek-v4-pro, deepseek-v4-flash, and deepseek-v4-flash-vision-exp, but you passed deepseek-vl2.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"invalid_request_error\"}}"
+  }
+]

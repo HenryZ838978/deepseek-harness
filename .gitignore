@@ -19,6 +19,16 @@ reports/raw/**/*.jsonl
 reports/raw/**/*.json
 !reports/raw/.gitkeep
 !reports/raw/README.md
+# Curated anchors: hand-audited proof sets for trust_ledger.yaml claims.
+# These files carry no API keys / prompts / model responses beyond the exact
+# numeric evidence cited in the ledger. Re-audit before adding new paths.
+!reports/raw/probe_P1_reasoner_skip_2026-08-17/*.jsonl
+!reports/raw/probe_P1_reasoner_skip_2026-08-17/*.json
+!reports/raw/probe_P5_seqgap_scan_2026-08-17/*.json
+!reports/raw/probe_P8_vision_live_2026-08-22/*.json
+!reports/raw/probe_P8_vision_sweep_2026-08-22/*.json
+!reports/raw/**/README.md
+!reports/raw/**/notes.md
 
 # Editor
 .idea/

@@ -220,10 +220,30 @@ findings:
         title: V4-Flash protocol is bit-for-bit identical to V4-Pro
 
 key_quantitative_claims:
+  # Evidence status legend for `resample_status` below:
+  #   present-2026-05        : original 2026-05-09 batch, still in repo
+  #   resampled-2026-08-22   : re-run on 2026-08-22 against current DeepSeek endpoint
+  #   deferred-costly        : original raw not retained; re-sample is expensive
+  #                             (context-window sweeps burn $$ + hit timeouts).
+  #                             Claim retained on report body only; re-run when needed.
+  #   new-anchor-2026-08     : evidence collected 2026-08-{17..22} in support of
+  #                             new probes P1-skip / P5-seqgap / P8-multimodal
+  #                             for the doctor --node suite.
+  #
+  # Auditor's note (evidence file layout):
+  #   `reports/raw/**/*.{jsonl,json}` is under .gitignore because raw dumps
+  #   can carry API echoes. Only hand-audited anchor sets are whitelisted
+  #   (see .gitignore). Everything cited as `resampled-2026-08-22` below can
+  #   be regenerated locally by running `python reports/probes/<probe>.py --n 10`
+  #   with a DEEPSEEK_API_KEY in .env — the probes write to the same paths
+  #   the ledger cites. Anchor sets cited as `new-anchor-2026-08` are
+  #   committed and directly auditable.
+
   - claim: context_window_hard_ceiling
     value: 1048576
     type: tokens
     proof: reports/raw/probe_6b_context_ceiling/*.jsonl
+    resample_status: deferred-costly
     error_message_verbatim: >
       This model's maximum context length is 1048576 tokens. However,
       you requested 1060836 tokens (1060828 in the messages, 8 in the completion).
@@ -232,18 +252,21 @@ key_quantitative_claims:
     value: 256
     type: tokens
     proof: reports/raw/probe_5_cache_prefix_sensitivity/*.jsonl
+    resample_status: resampled-2026-08-22
     note: All cached_tokens counts are integer multiples of 256 across 24 trials.
 
   - claim: minimum_prefix_to_engage_cache
     value: 1024
     type: tokens
     proof: reports/raw/probe_5_cache_prefix_sensitivity/*.jsonl + DeepSeek docs
+    resample_status: resampled-2026-08-22
 
   - claim: reasoning_content_lifecycle_400_reproduction
     value: 3
     out_of: 3
     type: trials
     proof: reports/raw/probe_2_reasoning_lifecycle/*.jsonl
+    resample_status: resampled-2026-08-22
 
   - claim: tool_call_leakage_rate_v4_official
     value: 0
@@ -252,6 +275,7 @@ key_quantitative_claims:
     proof: |
       reports/raw/probe_3_tool_call_leakage/*.jsonl (n=30, thinking-off)
       reports/raw/probe_3b_tool_call_leakage_thinking/*.jsonl (n=20, thinking-on)
+    resample_status: resampled-2026-08-22
     contradicts_community_claim: deepseek-ai/DeepSeek-V3#1244 (~11% on V3)
 
   - claim: strict_mode_corruption_rate_v4
@@ -261,12 +285,14 @@ key_quantitative_claims:
     proof: |
       reports/raw/probe_4_strict_mode_corruption_standard_strict_true/*.jsonl
       reports/raw/probe_4_strict_mode_corruption_beta_strict_true/*.jsonl
+    resample_status: resampled-2026-08-22
     contradicts_community_claim: deepseek-ai/DeepSeek-V3#1069 (closed not-planned)
 
   - claim: latency_at_1m_tokens_cold
     value: 15566
     unit: ms
     proof: reports/raw/probe_6b_context_ceiling/*.jsonl
+    resample_status: deferred-costly
 
   - claim: streaming_chunks_for_self_doubt_prompt
     value: 7941
@@ -274,6 +300,7 @@ key_quantitative_claims:
     duration_seconds: 84
     reasoning_bytes: 26196
     proof: reports/raw/probe_9_reasoning_runaway/*.jsonl
+    resample_status: resampled-2026-08-22
 
   - claim: cache_hit_5_turn_progression
     series:
@@ -283,6 +310,56 @@ key_quantitative_claims:
       turn_3: 0.78
       turn_4: 0.95
     proof: reports/raw/probe_10_multiturn_agentic_loop/*.jsonl
+    resample_status: resampled-2026-08-22
+
+  # --- New anchors, 2026-08 batch (P1 / P5 / P8 for `dsh doctor --node`) ---
+
+  - claim: reasoner_skip_correlates_with_prompt_shape_not_temperature
+    finding: |
+      200-trial sweep (5 prompt families × 4 temps × 10 trials).
+      Silence rate ranges: no_reason_ask 40-100%, single_tool 60-80%,
+      multi_tool 0-20%, reasoning_hint / cot_forced 0% every cell.
+    proof: reports/raw/probe_P1_reasoner_skip_2026-08-17/20260817T120741Z.jsonl
+    summary: reports/raw/probe_P1_reasoner_skip_2026-08-17/summary.json
+    resample_status: new-anchor-2026-08
+    drives_probe: P1-reasoner-skip (dsh doctor --node)
+
+  - claim: session_persistence_seqgap_scanner_two_failure_modes
+    finding: |
+      scanLog (rc.6 artifact) has two failure paths:
+      (a) silent truncation when seq-gapped row lacks turn/end
+      (b) thrown corrupt-session error once any subsequent turn/end fires
+      Same root cause: no cross-process flock / O_EXCL in session-persistence-jsonl.
+    proof: reports/raw/probe_P5_seqgap_scan_2026-08-17/scan_probe.json
+    notes: reports/raw/probe_P5_seqgap_scan_2026-08-17/notes.md
+    resample_status: new-anchor-2026-08
+    drives_probe: P5-seqgap (dsh doctor --node)
+    upstream_discussion: deepseek-ai/deepseek-harness#2571
+
+  - claim: vision_model_image_token_baseline
+    values:
+      "long_edge <= 512":   186
+      "long_edge <= 1024":  270
+      "long_edge <= 2048":  418
+      "long_edge >  2048":  418
+    unit: tokens
+    proof: reports/raw/probe_P8_vision_sweep_2026-08-22/sweep.json
+    resample_status: new-anchor-2026-08
+    drives_code: packages/core/deepseek_harness/cache.py::estimate_image_tokens
+    contract: spec/07_multimodal.md §7.2
+
+  - claim: vision_error_taxonomy_confirmed
+    finding: |
+      Server enforces 4 shape invariants with dedicated 400 messages:
+      - Image in assistant message is not supported
+      - This model does not support image (non-vision model)
+      - Unsupported image_url format (empty url)
+      - Model name whitelist (lists deepseek-v4-pro, -flash, -flash-vision-exp)
+    proof: reports/raw/probe_P8_vision_live_2026-08-22/results.json
+    resample_status: new-anchor-2026-08
+    drives_code:
+      - packages/core/deepseek_harness/normalize.py::assert_multimodal_shape
+      - packages/core/deepseek_harness/models.py (catalog matches server whitelist)
 
 honest_disclosures:
   - finding 13 (V8 Invalid string length) is partially reproduced. V4-Pro's

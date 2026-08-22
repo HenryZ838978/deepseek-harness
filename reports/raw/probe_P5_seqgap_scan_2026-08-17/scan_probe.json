@@ -1,0 +1,93 @@
+[
+  {
+    "name": "A_dup_seq_no_end",
+    "bytes": 293,
+    "threw": false,
+    "eventCount": 2,
+    "committedBytes": 231,
+    "seqs": [
+      0,
+      1
+    ],
+    "pendingIssue": "corrupt session log: seq gap in committed region at line 3 (expected 2, got 1)"
+  },
+  {
+    "name": "B_seq_gap_0_1_3_no_end",
+    "bytes": 293,
+    "threw": false,
+    "eventCount": 2,
+    "committedBytes": 231,
+    "seqs": [
+      0,
+      1
+    ],
+    "pendingIssue": "corrupt session log: seq gap in committed region at line 3 (expected 2, got 3)"
+  },
+  {
+    "name": "C_seq_regress_no_end",
+    "bytes": 293,
+    "threw": false,
+    "eventCount": 2,
+    "committedBytes": 231,
+    "seqs": [
+      0,
+      1
+    ],
+    "pendingIssue": "corrupt session log: seq gap in committed region at line 3 (expected 2, got 0)"
+  },
+  {
+    "name": "D_dup_then_seq_2_no_end",
+    "bytes": 355,
+    "threw": false,
+    "eventCount": 2,
+    "committedBytes": 231,
+    "seqs": [
+      0,
+      1
+    ],
+    "pendingIssue": "corrupt session log: seq gap in committed region at line 3 (expected 2, got 1)"
+  },
+  {
+    "name": "E_dup_then_turn_end",
+    "bytes": 352,
+    "threw": true,
+    "error": "corrupt session log: seq gap in committed region at line 3 (expected 2, got 1)"
+  },
+  {
+    "name": "F_healthy_baseline",
+    "bytes": 293,
+    "threw": false,
+    "eventCount": 3,
+    "committedBytes": 293,
+    "seqs": [
+      0,
+      1,
+      2
+    ],
+    "pendingIssue": null
+  },
+  {
+    "name": "G_dup_and_turn_end_same",
+    "bytes": 290,
+    "threw": true,
+    "error": "corrupt session log: seq gap in committed region at line 3 (expected 2, got 1)"
+  },
+  {
+    "name": "H_two_writers_no_turnend",
+    "bytes": 355,
+    "threw": false,
+    "eventCount": 2,
+    "committedBytes": 231,
+    "seqs": [
+      0,
+      1
+    ],
+    "pendingIssue": "corrupt session log: seq gap in committed region at line 3 (expected 2, got 0)"
+  },
+  {
+    "name": "I_two_writers_turnend_W2",
+    "bytes": 352,
+    "threw": true,
+    "error": "corrupt session log: seq gap in committed region at line 3 (expected 2, got 0)"
+  }
+]

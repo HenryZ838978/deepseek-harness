@@ -1,0 +1,7 @@
+[
+  {"size": 100,  "http": 200, "prompt_tokens": 199, "completion": 5, "details": {"cached_tokens": 0}},
+  {"size": 200,  "http": 200, "prompt_tokens": 199, "completion": 5, "details": {"cached_tokens": 0}},
+  {"size": 512,  "http": 200, "prompt_tokens": 283, "completion": 5, "details": {"cached_tokens": 0}},
+  {"size": 1000, "http": 200, "prompt_tokens": 431, "completion": 5, "details": {"cached_tokens": 0}},
+  {"size": 1500, "http": 200, "prompt_tokens": 431, "completion": 5, "details": {"cached_tokens": 0}}
+]
