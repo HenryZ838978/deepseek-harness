@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deepseek-harness-cli"
-version = "0.3.1"
-description = "Command-line companion to deepseek-harness. `dsh doctor --node` (eight witness probes for the official Node DeepSeek Harness, incl. rc.8 Agent Teams, subagent env-scrub, Codex preflight, multimodal composition)."
+version = "0.3.2"
+description = "Command-line companion to deepseek-harness. `dsh doctor --node` (nine witness probes for the official Node DeepSeek Harness, incl. rc.2 Files API cross-instance quota race)."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

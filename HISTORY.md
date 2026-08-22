@@ -51,6 +51,18 @@ fix is always `pip install deepseek-harness-cli && dsh doctor --node`.
 
 ---
 
+## 2026-08-21 · `@deepseek-ai/dsh` **0.1.1-rc.2** (35 commits since rc.1, ~6 hours later; **promoted to `latest`** — first version made general-audience since 0.1.0-rc.7)
+
+Nearly the whole diff is one topic: unified request-image pipeline with the new DeepSeek Files API upload path. `feat(images): unify master and Files request pipeline` + `fix(llm-deepseek): fall back when Files resolution fails` + `fix(deepseek): decouple files and stream timeouts`.
+
+- **All 8 previous defects still present** at tag `dsh-v0.1.1-rc.2`. Same grep as rc.1: `spillAll` / `stripBOM` / `api-request-trust host===` / `session-persistence flock` / `SENSITIVE_ENV_PATTERN` / `subagent-codex readFileSync` / `adapter.ts hasImages throw-after-append` all byte-identical.
+- **New: DeepSeek Files API upload-index is not cross-instance safe under one API key.** `packages/llm/llm-deepseek/src/file-store.ts:reclaimOldestOwned` deletes remote /files entries whose filename starts with `OWNED_FILE_PREFIX = 'dsh-'`. The prefix is dsh-ecosystem-wide, not per-install. Two dsh installs sharing one API key (team, CI, one dev + two machines) each maintain a separate local `~/.dsh/llm-deepseek/files-v3.json` but hit the same remote quota — when A's `reclaimOldestOwned` fires, it happily deletes file_ids B is still using. B's next image request hits "unknown file_id", loses prefix cache. → **`dsh doctor --node --only P9-files-quota-scope`**
+- **Observed but not a probe: aggressive downscale on upload.** `attachment-local/src/request-image.ts:requestImageDimensions()` scales to `maxPixels` cap with aspect-preserving integer rounding. A 5000×5000 source going to a 512×512 provider budget loses information client-side, before the model sees it. DSH-side, not a wire bug; users who wonder "why can't the model see the fine text in my screenshot" are looking at this. sharp/libvips is well-behaved code — the concern is the policy, not the implementation.
+- **Observed but not a probe: no slice/tiling on dsh side.** grep for `slice|tile|patch` on the image pipeline returns 0 matches unrelated to hash prefixes. DSH sends one flat image (via data URL or file_id); server-side tiling is the model's problem, not dsh's. Architectural choice, not a defect — recorded so the map is complete.
+- **Observed but not a probe: no vision streaming prefill.** Vision content is fully assembled before `stream()` opens. Aligns with DeepSeek chat/completions capabilities; no gap here.
+
+---
+
 ## How to read this file
 
 - **All entries are code-referenceable.** Every claim above cites a specific file or a specific defect id from the official `deepseek-ai/deepseek-harness` GitHub Discussions.

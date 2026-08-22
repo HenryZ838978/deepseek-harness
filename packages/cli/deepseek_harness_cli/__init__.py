@@ -1,2 +1,2 @@
 """dsh — command-line interface for deepseek-harness."""
-__version__ = "0.3.1"
+__version__ = "0.3.2"
