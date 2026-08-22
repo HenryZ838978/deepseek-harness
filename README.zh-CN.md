@@ -5,17 +5,19 @@
 
 # `deepseek-harness`
 
-### DeepSeek V4-Pro / V4-Flash 的协议感知适配层
+### DeepSeek V4-Pro / V4-Flash / V4-Flash-Vision-Exp 的协议感知适配层
 
 [![pypi](https://img.shields.io/pypi/v/deepseek-harness?label=pip%20install&color=3776AB&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness/)
+[![cli](https://img.shields.io/pypi/v/deepseek-harness-cli?label=dsh%20doctor&color=22c55e&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness-cli/)
 [![skill](https://img.shields.io/badge/Anthropic-SKILL.md-D97757?logo=anthropic&logoColor=white)](packages/skill/SKILL.md)
 [![probes](https://img.shields.io/badge/probes-12-1f6feb)](reports/probes/)
+[![doctor](https://img.shields.io/badge/dsh%20doctor%20--node-9%20probes-1f6feb)](packages/cli/deepseek_harness_cli/doctor_node/)
 [![findings](https://img.shields.io/badge/findings-16-22c55e)](reports/REPORT_2026-05-09.md)
 [![ceiling](https://img.shields.io/badge/context%20ceiling-1%2C048%2C576-orange)](spec/06_context_limits.md)
 [![cache discount](https://img.shields.io/badge/cache%20discount-50%C3%97-yellow)](spec/04_cache_hit.md)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-同一份协议契约,以四种封装形态分发。面向任意 OpenAI 兼容客户端的接入需求。
+同一份协议契约,以四种封装形态分发。面向任意 OpenAI 兼容客户端的接入需求。多模态(vision)契约见 [spec/07](spec/07_multimodal.md),自 2026-08-22。
 
 [English](README.md) · **中文**
 
@@ -47,24 +49,40 @@ flowchart LR
     F3["用非 loopback 主机名<br/>访问 dsh web"]:::fail
     F4["tmp 目录<br/>不可写"]:::fail
     F5["两个 dsh 进程<br/>指向同一 workspace"]:::fail
+    F6["env 里设了<br/>MY_SERVICE_KEY"]:::fail
+    F7["profile 引 Codex 但<br/>没装 @openai/codex"]:::fail
+    F8["用 vision 模型但<br/>没挂 attachment-local"]:::fail
+    F9["两个 dsh 安装<br/>共用一个 API key"]:::fail
 
     S1["思考模式历史<br/><i>看起来不完整</i>"]:::sym
     S2["<code>dsh plugin add</code><br/>JSON.parse 崩"]:::sym
     S3["页面永停在<br/>'选择工作区'<br/><i>无 console 报错</i>"]:::sym
     S4["整个 harness<br/>半路 <code>exit 1</code>"]:::sym
     S5["session 打不开,<br/>或加载后<br/><i>静默少了几条</i>"]:::sym
+    S6["subagent CLI<br/><i>看到你 env var 的位置<br/>是个洞</i>"]:::sym
+    S7["profile 加载 <code>ERR_MODULE_NOT_FOUND</code>,<br/>dsh 启动崩"]:::sym
+    S8["图片消息发出去,<br/>没回复,session 留<br/>孤儿 turn"]:::sym
+    S9["<code>unknown file_id</code>,<br/>图片被迫重传,<br/>prefix cache 全 miss"]:::sym
 
     D1["<b>P1-reasoner-skip</b><br/>裸 60% · +hint 0% · Δ+60%"]:::fix
     D2["<b>P2-bom</b><br/>1/N 个 manifest 带 BOM"]:::fix
     D3["<b>P3-serve</b><br/>evil Origin 下 mux 403"]:::fix
     D4["<b>P4-spill</b><br/>/tmp 探针 EACCES"]:::fix
     D5["<b>P5-seqgap</b><br/>第 N 行 seq gap,等 turn/end 引爆"]:::fix
+    D6["<b>P6-subagent-env-scrub</b><br/>N 个 user env 会被剥掉"]:::fix
+    D7["<b>P7-subagent-codex-preflight</b><br/>@openai/codex 缺失"]:::fix
+    D8["<b>P8-multimodal-preflight</b><br/>vision 模型 + 无 attachment"]:::fix
+    D9["<b>P9-files-quota-scope</b><br/>N 条记录跨 M 个 scope"]:::fix
 
     F1 --> S1 --> D1
     F2 --> S2 --> D2
     F3 --> S3 --> D3
     F4 --> S4 --> D4
     F5 --> S5 --> D5
+    F6 --> S6 --> D6
+    F7 --> S7 --> D7
+    F8 --> S8 --> D8
+    F9 --> S9 --> D9
 
     subgraph L1["失效原因"]
       F1
@@ -72,6 +90,10 @@ flowchart LR
       F3
       F4
       F5
+      F6
+      F7
+      F8
+      F9
     end
     subgraph L2["你看到的症状"]
       S1
@@ -79,6 +101,10 @@ flowchart LR
       S3
       S4
       S5
+      S6
+      S7
+      S8
+      S9
     end
     subgraph L3["dsh doctor --node · 一行诊断"]
       D1
@@ -86,6 +112,10 @@ flowchart LR
       D3
       D4
       D5
+      D6
+      D7
+      D8
+      D9
     end
 ```
 
@@ -95,7 +125,7 @@ export DEEPSEEK_API_KEY=sk-...
 dsh doctor --node
 ```
 
-五条针对 [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)(官方 Node 运行时)的探针 —— 每一条都在报告官方自家工具**看不到**的事:
+九条针对 [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)(官方 Node 运行时)的探针 —— 每一条都在报告官方自家工具**看不到**的事:
 
 | 探针 | 它告诉你的、官方 Node 侧不会告诉你的 |
 |---|---|
@@ -103,7 +133,11 @@ dsh doctor --node
 | **P2-bom**           | 你本地有带 UTF-8 BOM 的插件 `package.json`,`dsh plugin add` 会崩([#2798](https://github.com/deepseek-ai/deepseek-harness/discussions/2798))。离线扫。 |
 | **P3-serve**         | 你的 `dsh web` fence 在非 loopback Origin 下会**静默拒绝**数据层,页面永停在选工作区([#2573](https://github.com/deepseek-ai/deepseek-harness/discussions/2573))。 |
 | **P4-spill**         | 你的 tmp 目录不可写 —— 子进程 spill 一发就 `exit 1`(`spillAll()` 的 `openSync/writeSync` 无 try/catch)。 |
-| **P5-seqgap**        | 你的 session log 已经有 concurrent-writer seq gap([#2571](https://github.com/deepseek-ai/deepseek-harness/discussions/2571))。两种失败模式:静默截断,或下次 `turn/end` 触发永久 corrupt。 |
+| **P5-seqgap**        | 你的 session log —— 或 Agent Teams log —— 已经有 concurrent-writer seq gap([#2571](https://github.com/deepseek-ai/deepseek-harness/discussions/2571))。两种失败模式:静默截断,或下次 `turn/end` 触发永久 corrupt。 |
+| **P6-subagent-env-scrub** | 任何名字含 `KEY`/`TOKEN`/`SECRET`/`PASSWORD` 的 env 变量会被 `SENSITIVE_ENV_PATTERN` 从 Claude Code / Codex 子 agent 里静默剥掉 —— 包括 `AWS_ACCESS_KEY_ID` 这种你压根不当凭据的名字。 |
+| **P7-subagent-codex-preflight** | 你的 profile 引用了 Codex subagent provider,但 `@openai/codex` 没装 —— plugin load 时 `ERR_MODULE_NOT_FOUND`,整个 dsh 启动崩。 |
+| **P8-multimodal-preflight** | 你的 composition 用了 vision 模型,但没挂 attachment provider —— 带图 user turn 落盘一半(有图无回复)。 |
+| **P9-files-quota-scope** | 你本地 Files API upload index 有记录,而另一个用同一 API key 的 dsh 安装可以通过 `reclaimOldestOwned` 静默删掉你的 file_id —— 下次带图请求 prefix cache 全 miss。 |
 
 每一条 WARN/FAIL 都给出具体修复。这个 doctor **不是**官方运行时的竞品,是它的**证人**。
 沿用同一个 `dsh` 名字,是因为对方自己讲"一切皆插件"—— 这就是其中一个。

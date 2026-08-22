@@ -5,17 +5,19 @@
 
 # `deepseek-harness`
 
-### Protocol-aware adapters for DeepSeek V4-Pro and V4-Flash
+### Protocol-aware adapters for DeepSeek V4-Pro, V4-Flash, and V4-Flash-Vision-Exp
 
 [![pypi](https://img.shields.io/pypi/v/deepseek-harness?label=pip%20install&color=3776AB&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness/)
+[![cli](https://img.shields.io/pypi/v/deepseek-harness-cli?label=dsh%20doctor&color=22c55e&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness-cli/)
 [![skill](https://img.shields.io/badge/Anthropic-SKILL.md-D97757?logo=anthropic&logoColor=white)](packages/skill/SKILL.md)
 [![probes](https://img.shields.io/badge/probes-12-1f6feb)](reports/probes/)
+[![doctor](https://img.shields.io/badge/dsh%20doctor%20--node-9%20probes-1f6feb)](packages/cli/deepseek_harness_cli/doctor_node/)
 [![findings](https://img.shields.io/badge/findings-16-22c55e)](reports/REPORT_2026-05-09.md)
 [![ceiling](https://img.shields.io/badge/context%20ceiling-1%2C048%2C576-orange)](spec/06_context_limits.md)
 [![cache discount](https://img.shields.io/badge/cache%20discount-50%C3%97-yellow)](spec/04_cache_hit.md)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-A single protocol contract distributed in four wrapper formats. Designed to meet the integration requirements of any OpenAI-compatible client.
+A single protocol contract distributed in four wrapper formats. Designed to meet the integration requirements of any OpenAI-compatible client. Multimodal (vision) contract per [spec/07](spec/07_multimodal.md) since 2026-08-22.
 
 **English** · [中文](README.zh-CN.md)
 
@@ -48,24 +50,40 @@ flowchart LR
     F3["dsh web hit via<br/>non-loopback hostname"]:::fail
     F4["tmp dir<br/>unwritable"]:::fail
     F5["Two dsh processes<br/>on one workspace"]:::fail
+    F6["MY_SERVICE_KEY<br/>set in env"]:::fail
+    F7["Codex provider row<br/>without @openai/codex"]:::fail
+    F8["Vision model, no<br/>attachment-local plugin"]:::fail
+    F9["Two dsh installs<br/>sharing one API key"]:::fail
 
     S1["Thinking-mode history<br/><i>looks incomplete</i>"]:::sym
     S2["<code>dsh plugin add</code><br/>crashes on JSON.parse"]:::sym
     S3["Page hangs on<br/>'Select a workspace'<br/><i>no console error</i>"]:::sym
     S4["Whole harness<br/><code>exit 1</code> mid-turn"]:::sym
     S5["Session won't load,<br/>or loads with<br/><i>silently fewer events</i>"]:::sym
+    S6["Subagent CLI<br/><i>silently sees a hole</i><br/>where your var was"]:::sym
+    S7["Profile load<br/><code>ERR_MODULE_NOT_FOUND</code><br/>takes down dsh boot"]:::sym
+    S8["Image message sent,<br/>no reply, session shows<br/>orphan turn"]:::sym
+    S9["<code>unknown file_id</code>,<br/>image re-upload,<br/>prefix cache misses"]:::sym
 
     D1["<b>P1-reasoner-skip</b><br/>bare 60% · +hint 0% · Δ+60%"]:::fix
     D2["<b>P2-bom</b><br/>1/N manifests → BOM"]:::fix
     D3["<b>P3-serve</b><br/>mux 403 under evil Origin"]:::fix
     D4["<b>P4-spill</b><br/>EACCES on /tmp probe"]:::fix
     D5["<b>P5-seqgap</b><br/>seq gap at line N, awaiting turn/end"]:::fix
+    D6["<b>P6-subagent-env-scrub</b><br/>N user vars will be stripped"]:::fix
+    D7["<b>P7-subagent-codex-preflight</b><br/>@openai/codex missing"]:::fix
+    D8["<b>P8-multimodal-preflight</b><br/>vision model + no attachment"]:::fix
+    D9["<b>P9-files-quota-scope</b><br/>N records across M scopes"]:::fix
 
     F1 --> S1 --> D1
     F2 --> S2 --> D2
     F3 --> S3 --> D3
     F4 --> S4 --> D4
     F5 --> S5 --> D5
+    F6 --> S6 --> D6
+    F7 --> S7 --> D7
+    F8 --> S8 --> D8
+    F9 --> S9 --> D9
 
     subgraph L1["failure mode"]
       F1
@@ -73,6 +91,10 @@ flowchart LR
       F3
       F4
       F5
+      F6
+      F7
+      F8
+      F9
     end
     subgraph L2["what you see"]
       S1
@@ -80,6 +102,10 @@ flowchart LR
       S3
       S4
       S5
+      S6
+      S7
+      S8
+      S9
     end
     subgraph L3["dsh doctor --node · one line"]
       D1
@@ -87,6 +113,10 @@ flowchart LR
       D3
       D4
       D5
+      D6
+      D7
+      D8
+      D9
     end
 ```
 
@@ -96,7 +126,7 @@ export DEEPSEEK_API_KEY=sk-...
 dsh doctor --node
 ```
 
-Five probes for [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)
+Nine probes for [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)
 (the official Node runtime) — each reports something its own tooling does not:
 
 | probe | what it tells you the Node stack won't |
@@ -105,7 +135,11 @@ Five probes for [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-har
 | **P2-bom**           | You have a plugin `package.json` with a UTF-8 BOM — `dsh plugin add` will crash on it ([#2798](https://github.com/deepseek-ai/deepseek-harness/discussions/2798)). Offline scan. |
 | **P3-serve**         | Your `dsh web` fence silently rejects the data layer under a non-loopback Origin ([#2573](https://github.com/deepseek-ai/deepseek-harness/discussions/2573)). |
 | **P4-spill**         | Your tmp directory is unwritable — the subprocess spill path will `exit 1` (`spillAll()` has no try/catch around `openSync/writeSync`). |
-| **P5-seqgap**        | Your session log already has a concurrent-writer seq gap ([#2571](https://github.com/deepseek-ai/deepseek-harness/discussions/2571)). Two failure modes: silent truncation, or permanent corrupt on the next `turn/end`. |
+| **P5-seqgap**        | Your session log — or an Agent Teams log — already has a concurrent-writer seq gap ([#2571](https://github.com/deepseek-ai/deepseek-harness/discussions/2571)). Two failure modes: silent truncation, or permanent corrupt on the next `turn/end`. |
+| **P6-subagent-env-scrub** | Any env var whose name contains `KEY`/`TOKEN`/`SECRET`/`PASSWORD` is silently stripped from Claude Code / Codex subagent children by `SENSITIVE_ENV_PATTERN` — including `AWS_ACCESS_KEY_ID` and friends you didn't mean as credentials. |
+| **P7-subagent-codex-preflight** | Your profile references the Codex subagent provider but `@openai/codex` is not installed — plugin load crashes at boot with `ERR_MODULE_NOT_FOUND`. |
+| **P8-multimodal-preflight** | Your composition names a vision model but no attachment provider is mounted — the user's image-bearing turn commits half a session log entry (image without reply). |
+| **P9-files-quota-scope** | Your local Files API upload index has records that another dsh install using the same API key can silently delete via `reclaimOldestOwned` — next image request breaks the prefix cache. |
 
 Each finding is a WARN or FAIL with a concrete fix. The doctor is not a
 competitor to the official runtime — it's a witness. Wraps around the same
