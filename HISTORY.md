@@ -18,6 +18,13 @@ fix is always `pip install deepseek-harness-cli && dsh doctor --node`.
 
 ---
 
+## 2026-08-31 · `deepseek-harness-cli` **0.5.0** (this repo, PyPI)
+
+- Tenth probe: **`P10-jsonl-repair-unguarded`** — the jsonl session backend's `commitRepair` truncates a torn tail with no staleness re-check, while its sqlite sibling does the same job inside a `begin-immediate` transaction with three staleness throws. jsonl is the default backend. Offline probe; reports exposure on the local session corpus.
+- **`P3-serve` re-judged.** Upstream fixed #2573 in 0.1.2-alpha.1, and the new browser-session cookie fence answers **401** where the old stack answered 101/200/404 — the old pass condition would have misreported on every fixed server. The probe now identifies which fence generation a server runs: pass on host+cookie, warn on the legacy host-only fence with an upgrade pointer. → `pip install -U deepseek-harness-cli`
+
+---
+
 ## 2026-08-13 · `@deepseek-ai/dsh` **0.1.0-rc.6** (GA, released with V4-Pro-0813)
 
 - **`spillAll()` has no try/catch around `openSync`/`writeSync`** — the sibling `discardSpill()` is guarded, this one is not. EACCES / ENOSPC on the tmp dir escapes the `data` callback and takes the whole harness to `exit 1`. `dsh-subprocess-local/src/spawn.ts`. → **`dsh doctor --node --only P4-spill`**
