@@ -11,7 +11,7 @@
 [![cli](https://img.shields.io/pypi/v/deepseek-harness-cli?label=dsh%20doctor&color=22c55e&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness-cli/)
 [![skill](https://img.shields.io/badge/Anthropic-SKILL.md-D97757?logo=anthropic&logoColor=white)](packages/skill/SKILL.md)
 [![probes](https://img.shields.io/badge/probes-12-1f6feb)](reports/probes/)
-[![doctor](https://img.shields.io/badge/dsh%20doctor%20--node-9%20probes-1f6feb)](packages/cli/deepseek_harness_cli/doctor_node/)
+[![doctor](https://img.shields.io/badge/dsh%20doctor%20--node-10%20probes-1f6feb)](packages/cli/deepseek_harness_cli/doctor_node/)
 [![findings](https://img.shields.io/badge/findings-16-22c55e)](reports/REPORT_2026-05-09.md)
 [![ceiling](https://img.shields.io/badge/context%20ceiling-1%2C048%2C576-orange)](spec/06_context_limits.md)
 [![cache discount](https://img.shields.io/badge/cache%20discount-50%C3%97-yellow)](spec/04_cache_hit.md)
@@ -53,6 +53,7 @@ flowchart LR
     F7["profile 引 Codex 但<br/>没装 @openai/codex"]:::fail
     F8["用 vision 模型但<br/>没挂 attachment-local"]:::fail
     F9["两个 dsh 安装<br/>共用一个 API key"]:::fail
+    F10["崩溃后会话日志<br/>留下一截断尾"]:::fail
 
     S1["思考模式历史<br/><i>看起来不完整</i>"]:::sym
     S2["<code>dsh plugin add</code><br/>JSON.parse 崩"]:::sym
@@ -63,6 +64,7 @@ flowchart LR
     S7["profile 加载 <code>ERR_MODULE_NOT_FOUND</code>,<br/>dsh 启动崩"]:::sym
     S8["图片消息发出去,<br/>没回复,session 留<br/>孤儿 turn"]:::sym
     S9["<code>unknown file_id</code>,<br/>图片被迫重传,<br/>prefix cache 全 miss"]:::sym
+    S10["修复时警告一句就截断,<br/><i>另一进程刚提交的事件<br/>跟着一起没了</i>"]:::sym
 
     D1["<b>P1-reasoner-skip</b><br/>裸 60% · +hint 0% · Δ+60%"]:::fix
     D2["<b>P2-bom</b><br/>1/N 个 manifest 带 BOM"]:::fix
@@ -73,6 +75,7 @@ flowchart LR
     D7["<b>P7-subagent-codex-preflight</b><br/>@openai/codex 缺失"]:::fix
     D8["<b>P8-multimodal-preflight</b><br/>vision 模型 + 无 attachment"]:::fix
     D9["<b>P9-files-quota-scope</b><br/>N 条记录跨 M 个 scope"]:::fix
+    D10["<b>P10-jsonl-repair-unguarded</b><br/>N 个日志带断尾"]:::fix
 
     F1 --> S1 --> D1
     F2 --> S2 --> D2
@@ -83,6 +86,7 @@ flowchart LR
     F7 --> S7 --> D7
     F8 --> S8 --> D8
     F9 --> S9 --> D9
+    F10 --> S10 --> D10
 
     subgraph L1["失效原因"]
       F1
@@ -94,6 +98,7 @@ flowchart LR
       F7
       F8
       F9
+      F10
     end
     subgraph L2["你看到的症状"]
       S1
@@ -105,6 +110,7 @@ flowchart LR
       S7
       S8
       S9
+      S10
     end
     subgraph L3["dsh doctor --node · 一行诊断"]
       D1
@@ -116,6 +122,7 @@ flowchart LR
       D7
       D8
       D9
+      D10
     end
 ```
 
@@ -125,7 +132,7 @@ export DEEPSEEK_API_KEY=sk-...
 dsh doctor --node
 ```
 
-九条针对 [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)(官方 Node 运行时)的探针 —— 每一条都在报告官方自家工具**看不到**的事:
+十条针对 [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)(官方 Node 运行时)的探针 —— 每一条都在报告官方自家工具**看不到**的事:
 
 | 探针 | 它告诉你的、官方 Node 侧不会告诉你的 |
 |---|---|
@@ -138,6 +145,7 @@ dsh doctor --node
 | **P7-subagent-codex-preflight** | 你的 profile 引用了 Codex subagent provider,但 `@openai/codex` 没装 —— plugin load 时 `ERR_MODULE_NOT_FOUND`,整个 dsh 启动崩。 |
 | **P8-multimodal-preflight** | 你的 composition 用了 vision 模型,但没挂 attachment provider —— 带图 user turn 落盘一半(有图无回复)。 |
 | **P9-files-quota-scope** | 你本地 Files API upload index 有记录,而另一个用同一 API key 的 dsh 安装可以通过 `reclaimOldestOwned` 静默删掉你的 file_id —— 下次带图请求 prefix cache 全 miss。 |
+| **P10-jsonl-repair-unguarded** | 你的会话日志带着断尾,默认的 jsonl 后端下次打开时会直接截断,**不复查这截尾巴还是不是它扫到的那截**;sqlite 后端会复查并抛 `repair is stale`。在这个窗口里另一个进程追加的事件,会被静默丢掉。 |
 
 每一条 WARN/FAIL 都给出具体修复。这个 doctor **不是**官方运行时的竞品,是它的**证人**。
 沿用同一个 `dsh` 名字,是因为对方自己讲"一切皆插件"—— 这就是其中一个。
