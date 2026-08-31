@@ -2,6 +2,9 @@
 sqlite sibling has.
 
 Discovery: 0.1.2-alpha.1 (2026-08-27, tag cd5ef81).
+Re-verified unchanged on 0.1.2-alpha.2 (2026-08-30, tag 0a53fb55be) — source
+and the published npm artifact both, see the note on jsonl's own docstring
+below.
 
 0.1.2-alpha.1 ships "warn when automatically repairing a truncated
 conversation-log tail and identify the affected conversation". The warning is
@@ -23,6 +26,10 @@ closers)` interface. They do not implement it with the same care:
     - `await this.repair(meta, tornMarker.truncateTo)`   ← unconditional
     - appends recovered events + closers
     - `logger.warn(...)` after the fact
+    - its own docstring: "Two fsync'd steps — the seam does not require this
+      to be atomic." The non-atomicity is deliberate and documented; what the
+      sqlite sibling adds on top of it is the staleness re-check, and that is
+      what jsonl lacks.
 
 The jsonl path never re-validates that the tail it is about to discard is
 still the tail it scanned. `repair()` (index.ts:~712) is a bare
