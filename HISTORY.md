@@ -25,6 +25,15 @@ fix is always `pip install deepseek-harness-cli && dsh doctor --node`.
 
 ---
 
+## 2026-09-02 · `deepseek-harness-cli` **0.5.1** (this repo, PyPI)
+
+Documentation-only release; no detection logic changed. It exists because 0.5.0 shipped before the alpha.4 audit, and three probes now carry findings a user reading `--json` evidence should have.
+
+- **`P10-jsonl-repair-unguarded` retitled and rewritten.** 0.5.0 described it as "the staleness check its sqlite sibling has". alpha.3 deleted that sibling, so the comparison no longer names anything in the tree. The probe now records that jsonl is the sole first-party implementation, cites upstream's removal note, and reports `production_commitrepair_impls: 1` in its evidence.
+- **`P4-spill-dir` and `P9-files-quota-scope` gained false-fix warnings.** alpha.4 hardened P4's spill open against symlink planting and P9's reclaim method reads as if it were scoped; neither is a fix. Each docstring now says why, so a later pass does not close a defect that is still open.
+
+---
+
 ## 2026-08-13 · `@deepseek-ai/dsh` **0.1.0-rc.6** (GA, released with V4-Pro-0813)
 
 - **`spillAll()` has no try/catch around `openSync`/`writeSync`** — the sibling `discardSpill()` is guarded, this one is not. EACCES / ENOSPC on the tmp dir escapes the `data` callback and takes the whole harness to `exit 1`. `dsh-subprocess-local/src/spawn.ts`. → **`dsh doctor --node --only P4-spill`**
