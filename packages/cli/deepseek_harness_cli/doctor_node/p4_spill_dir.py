@@ -6,6 +6,20 @@ Confirmed 2026-08-17 on rc.6 compiled artifact
 `dsh-subprocess-local/lib/index.js` ~393/417: `openSync/writeSync` bare,
 sibling `discardSpill` is guarded. Asymmetry is the tell.
 
+Still present on 0.1.2-alpha.4 (2026-09-01, tag 4e84901e), and the asymmetry
+is unchanged: `subprocess-local/src/spawn.ts:156-174` (`spillAll`) contains
+zero `try`, while `discardSpill` immediately below it contains three.
+
+Do not misread alpha.4's change here as a fix. The spill open was hardened
+against a *different* threat — it is now
+`openSync(this.spillFile, 'wx', 0o600)` with a `randomBytes(6)` suffix and a
+comment naming its purpose: "defeats spill-path prediction and symlink
+planting in shared tmp dirs." That is path-security hardening. It does not
+add error handling, and `'wx'` (O_EXCL) gives `openSync` one more way to
+throw, not fewer. The ENOSPC path this probe describes is untouched:
+`push()` at spawn.ts:134 still calls `spillAll(chunk)` bare, inside a
+stream 'data' callback.
+
 Static preflight: check whether the spill directory dsh will pick is
 writable *right now*. If not, dsh will crash the first time a subprocess
 produces enough output to trigger spill.

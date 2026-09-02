@@ -1,6 +1,12 @@
 """P9 — DeepSeek Files API upload-index cross-instance clobber.
 
 Discovery: rc.2 (2026-08-21) adds Files API upload with quota reclaim.
+Re-verified unchanged on 0.1.2-alpha.4 (2026-09-01, tag 4e84901e):
+`file-store.ts:12` is still `const OWNED_FILE_PREFIX = 'dsh-'` — a fixed
+string with no host, install, or user component — and `reclaimOldestOwned`
+(`:288-313`) still selects purely on `file.filename.startsWith(
+OWNED_FILE_PREFIX)` before deleting. "Owned" means owned by dsh the product,
+not by this installation of it; that is the whole defect.
 Path in `packages/llm/llm-deepseek/src/file-store.ts:reclaimOldestOwned`
 walks the remote /files list, filters by `filename.startsWith('dsh-')`,
 and deletes the oldest N. The scope key is
