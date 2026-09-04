@@ -173,6 +173,9 @@ def _chat(model: str, reasoning: bool, max_tokens: int) -> int:
         except (EOFError, KeyboardInterrupt):
             console.print("\n[dim]bye.[/]")
             return 0
+        except UnicodeDecodeError:
+            console.print("[dim](ignored non-UTF-8 input; set terminal to UTF-8)[/]")
+            continue
         if not user:
             continue
         if user in ("/quit", "/exit"):
