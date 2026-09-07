@@ -41,7 +41,8 @@ def _load_registry() -> list[Probe]:
     from .p8_multimodal_preflight import PROBE as P8
     from .p9_files_quota_scope import PROBE as P9
     from .p10_jsonl_repair_unguarded import PROBE as P10
-    return [P1, P2, P3, P4, P5, P6, P7, P8, P9, P10]
+    from .p11_plugin_inventory_manifest import PROBE as P11
+    return [P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11]
 
 
 REGISTRY = _load_registry

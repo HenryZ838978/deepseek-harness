@@ -11,7 +11,7 @@
 [![cli](https://img.shields.io/pypi/v/deepseek-harness-cli?label=dsh%20doctor&color=22c55e&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness-cli/)
 [![skill](https://img.shields.io/badge/Anthropic-SKILL.md-D97757?logo=anthropic&logoColor=white)](packages/skill/SKILL.md)
 [![probes](https://img.shields.io/badge/probes-12-1f6feb)](reports/probes/)
-[![doctor](https://img.shields.io/badge/dsh%20doctor%20--node-10%20probes-1f6feb)](packages/cli/deepseek_harness_cli/doctor_node/)
+[![doctor](https://img.shields.io/badge/dsh%20doctor%20--node-11%20probes-1f6feb)](packages/cli/deepseek_harness_cli/doctor_node/)
 [![findings](https://img.shields.io/badge/findings-16-22c55e)](reports/REPORT_2026-05-09.md)
 [![ceiling](https://img.shields.io/badge/context%20ceiling-1%2C048%2C576-orange)](spec/06_context_limits.md)
 [![cache discount](https://img.shields.io/badge/cache%20discount-50%C3%97-yellow)](spec/04_cache_hit.md)
@@ -55,6 +55,7 @@ flowchart LR
     F8["Vision model, no<br/>attachment-local plugin"]:::fail
     F9["Two dsh installs<br/>sharing one API key"]:::fail
     F10["Crash left a torn<br/>tail in a session log"]:::fail
+    F11["A <code>./plugin.js</code> line<br/>in the profile patch"]:::fail
 
     S1["Thinking-mode history<br/><i>looks incomplete</i>"]:::sym
     S2["<code>dsh plugin add</code><br/>crashes on JSON.parse"]:::sym
@@ -66,6 +67,7 @@ flowchart LR
     S8["Image message sent,<br/>no reply, session shows<br/>orphan turn"]:::sym
     S9["<code>unknown file_id</code>,<br/>image re-upload,<br/>prefix cache misses"]:::sym
     S10["Repair warns, truncates,<br/><i>a second process's event<br/>vanishes with it</i>"]:::sym
+    S11["Every request fails<br/><code>extension preparation failed</code>,<br/><i>no HTTP ever sent</i>"]:::sym
 
     D1["<b>P1-reasoner-skip</b><br/>bare 60% · +hint 0% · Δ+60%"]:::fix
     D2["<b>P2-bom</b><br/>1/N manifests → BOM"]:::fix
@@ -77,6 +79,7 @@ flowchart LR
     D8["<b>P8-multimodal-preflight</b><br/>vision model + no attachment"]:::fix
     D9["<b>P9-files-quota-scope</b><br/>N records across M scopes"]:::fix
     D10["<b>P10-jsonl-repair-unguarded</b><br/>N logs carry a torn tail"]:::fix
+    D11["<b>P11-plugin-inventory-manifest</b><br/>N entries resolve to dsh's own manifest"]:::fix
 
     F1 --> S1 --> D1
     F2 --> S2 --> D2
@@ -88,6 +91,7 @@ flowchart LR
     F8 --> S8 --> D8
     F9 --> S9 --> D9
     F10 --> S10 --> D10
+    F11 --> S11 --> D11
 
     subgraph L1["failure mode"]
       F1
@@ -100,6 +104,7 @@ flowchart LR
       F8
       F9
       F10
+      F11
     end
     subgraph L2["what you see"]
       S1
@@ -112,6 +117,7 @@ flowchart LR
       S8
       S9
       S10
+      S11
     end
     subgraph L3["dsh doctor --node · one line"]
       D1
@@ -124,6 +130,7 @@ flowchart LR
       D8
       D9
       D10
+      D11
     end
 ```
 
@@ -133,7 +140,7 @@ export DEEPSEEK_API_KEY=sk-...
 dsh doctor --node
 ```
 
-Ten probes for [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)
+Eleven probes for [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)
 (the official Node runtime) — each reports something its own tooling does not:
 
 | probe | what it tells you the Node stack won't |
@@ -147,7 +154,8 @@ Ten probes for [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harn
 | **P7-subagent-codex-preflight** | Your profile references the Codex subagent provider but `@openai/codex` is not installed — plugin load crashes at boot with `ERR_MODULE_NOT_FOUND`. |
 | **P8-multimodal-preflight** | Your composition names a vision model but no attachment provider is mounted — the user's image-bearing turn commits half a session log entry (image without reply). |
 | **P9-files-quota-scope** | Your local Files API upload index has records that another dsh install using the same API key can silently delete via `reclaimOldestOwned` — next image request breaks the prefix cache. |
-| **P10-jsonl-repair-unguarded** | Your session logs carry a torn tail that the default jsonl backend will truncate on next open with no staleness re-check — the sqlite backend does re-check and throws `repair is stale`. A second process appending in that window loses its committed event silently. |
+| **P10-jsonl-repair-unguarded** | Your session logs carry a torn tail that the jsonl backend will truncate on next open with no staleness re-check. The sqlite backend that did re-check (and threw `repair is stale`) was removed in 0.1.2-alpha.3, so jsonl is now the only backend. A second process appending in that window loses its committed event silently. |
+| **P11-plugin-inventory-manifest** | Your profile's `package.json` — the one dsh generated — has a `name` and no `version`, and the default-on `dsh_plugin_packages` request field throws on exactly that shape when a local plugin (`name: ./plugin.js`) resolves to it. Every request in that profile then fails `REQUEST_EXTENSION` before HTTP, after the user turn was already written. |
 
 Each finding is a WARN or FAIL with a concrete fix. The doctor is not a
 competitor to the official runtime — it's a witness. Wraps around the same
