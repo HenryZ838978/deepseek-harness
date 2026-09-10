@@ -12,6 +12,10 @@ dist/
 # Node
 node_modules/
 packages/mcp/dist/
+packages/mcp/*.tgz
+
+# Offline release bundles (rebuilt via `make package-release`)
+release/
 
 # Raw probe outputs are large and may contain API echoes — only summaries
 # (per-probe markdown) and the human-readable REPORT are committed.

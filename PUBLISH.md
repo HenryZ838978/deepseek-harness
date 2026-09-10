@@ -237,7 +237,39 @@ git push origin v$NEW
 
 ---
 
-## 7 · 完整一次性命令（如果你已经全装好了）
+## 7 · 本地离线发布包（不上传 registry）
+
+给用户直接分发 / GitHub Release 附件时，打一个完整 offline bundle：
+
+```bash
+make package-release
+# → release/deepseek-harness-<version>/
+# → release/deepseek-harness-<version>.tar.gz
+```
+
+内容包含：
+
+| 路径 | 用途 |
+|---|---|
+| `python/*.whl` + `*.tar.gz` | `pip install ./python/...` 安装 lib + CLI |
+| `npm/deepseek-harness-mcp-<v>.tgz` | `npx -y ./npm/...` 或 `npm install -g` |
+| `skill/` | 复制到 `~/.claude/skills/deepseek-harness` |
+| `INSTALL.md` | 面向终端用户的安装说明 |
+| `SHA256SUMS` | 校验和 |
+
+验证：
+
+```bash
+python3 -m pip install release/deepseek-harness-*/python/deepseek_harness-*-py3-none-any.whl
+python3 -m pip install release/deepseek-harness-*/python/deepseek_harness_cli-*-py3-none-any.whl
+dsh version
+```
+
+然后再走第 1 / 2 节把同一批 artifact 推到 PyPI / npm。
+
+---
+
+## 8 · 完整一次性命令（如果你已经全装好了）
 
 ```bash
 cd /cache/zhangjing/deepseek-harness
