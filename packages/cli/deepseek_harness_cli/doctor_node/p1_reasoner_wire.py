@@ -24,9 +24,22 @@ Impact for dsh users:
     the reasoning yield. That's a diagnostic no wire-level observation can
     produce.
 
-Sub-test kept: `tool_choice:"required"` still returns HTTP 400 against
-reasoner ("Thinking mode does not support this tool_choice"). Reported as
-an evidence bit, not a top-line verdict, because the API just enforces it.
+Sub-test kept: `tool_choice:"required"` still returns HTTP 400 ("Thinking
+mode does not support this tool_choice"). Reported as an evidence bit, not a
+top-line verdict, because the API just enforces it.
+
+2026-09-10 update (V4.1 Flash). The server canonicalised to `deepseek-flash`
+and now re-points every legacy id — including `deepseek-reasoner` — at it
+(verified live: the response `model` field comes back `deepseek-flash` for a
+`deepseek-reasoner` request). At the same time the skip behaviour this probe
+was built to detect is gone: 12/12 bare and 12/12 hinted samples on each of
+`deepseek-flash`, `deepseek-v4-pro` and the `deepseek-reasoner` alias all
+emitted `reasoning_content`, where the 2026-08-17 baseline was 60% bare /
+0% hinted. The skip is no longer reachable through a trivial prompt, so the
+warn branches below will not fire on current models; the probe keeps its A/B
+shape as a regression detector for the skip's return. The `tool_choice`
+evidence bit got *broader*, not narrower: all three ids now 400 on
+`tool_choice:"required"`, because V4.1 Flash runs in thinking mode too.
 
 Needs: DEEPSEEK_API_KEY.
 """

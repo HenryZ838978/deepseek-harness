@@ -1,12 +1,14 @@
 # 07 · Multimodal (Vision) Contract
 
-**Status.** Added 2026-08-22 in `deepseek-harness` 0.3.0 / `deepseek-harness-cli` 0.4.0. Tracks DeepSeek's `deepseek-v4-flash-vision-exp`, released as `@deepseek-ai/dsh` 0.1.1-rc.2 default catalog entry on 2026-08-21.
+**Status.** Added 2026-08-22 in `deepseek-harness` 0.3.0 / `deepseek-harness-cli` 0.4.0. Tracks DeepSeek's vision-capable chat models, first the `deepseek-v4-flash-vision-exp` preview (`@deepseek-ai/dsh` 0.1.1-rc.2 default catalog entry, 2026-08-21), now the canonical `deepseek-flash` (V4.1 Flash, which reads images by default).
+
+**2026-09-10 update (V4.1 Flash).** The endpoint's `GET /models` now returns exactly two ids — `deepseek-flash` and `deepseek-v4-pro` — and an unknown id is rejected with an error listing exactly those two. Sending `deepseek-v4-flash`, `deepseek-v4-flash-vision-exp`, `deepseek-reasoner`, or `deepseek-chat` returns HTTP 200 with the response `model` field set to `deepseek-flash`: the server silently re-points every legacy id. `deepseek-flash` accepts `image_url` content parts; `deepseek-v4-pro` does **not** — it accepts the request (HTTP 200) but drops the image part and charges text-only tokens, so routing images to it fails silently rather than with an error. Verified live on 2026-09-10; see `reports/raw/probe_P12_v41_flash_live_2026-09-10.jsonl`.
 
 **RFC 2119 keywords apply.**
 
 ## Scope
 
-This contract covers vision-capable calls to the DeepSeek chat/completions endpoint. Adapters MUST route image content via OpenAI-compatible `image_url` parts. Behaviour observed on `deepseek-v4-flash-vision-exp` between 2026-08-21 and 2026-08-22.
+This contract covers vision-capable calls to the DeepSeek chat/completions endpoint. Adapters MUST route image content via OpenAI-compatible `image_url` parts. Behaviour first observed on `deepseek-v4-flash-vision-exp` between 2026-08-21 and 2026-08-22; the canonical target is now `deepseek-flash`.
 
 ## §7.1 Message shape
 
@@ -30,17 +32,21 @@ Data URLs of the form `data:<mediaType>;base64,<payload>` are accepted; HTTP(S) 
 
 DeepSeek charges vision tokens against `usage.prompt_tokens` and (for reasoner-capable models) reports the model's own thinking budget separately under `usage.completion_tokens_details.reasoning_tokens`.
 
-**Measured baseline** against `api.deepseek.com` on 2026-08-22, `deepseek-v4-flash-vision-exp`, five-point size sweep with solid orange PNGs, `max_tokens=5`, no CoT hint:
+**Measured baseline** against `api.deepseek.com` on 2026-09-10, `deepseek-flash` (V4.1 Flash), dense sweep with solid orange PNGs, `max_tokens=1` (text-only wrapper measured 32 tokens on the same prompt):
 
-| image size | `prompt_tokens` | derived image cost | notes |
-|---|---|---|---|
-| 100×100 | 199 | ~186 | baseline (long_edge ≤ 512) |
-| 200×200 | 199 | ~186 | baseline |
-| 512×512 | 283 | ~270 | one extra tile (baseline + ~84) |
-| 1000×1000 | 431 | ~418 | more tiles (baseline + 3 × 84) |
-| 1500×1500 | 431 | ~418 | **plateau** — server caps tile count |
+| long edge | `prompt_tokens` | derived image cost |
+|---|---|---|
+| ≤ 512 | 216 | 184 |
+| 640 | 306 | 274 |
+| 768 | 414 | 382 |
+| 896 | 540 | 508 |
+| 1024 | 684 | 652 |
+| 1280 | 1026 | 994 |
+| > 1280 | 1026 | 994 (**plateau** — server tile cap) |
 
-Raw payloads and full responses under `overnight/vision-live/sweep.json` on the probe host. `estimate_image_tokens(w, h)` in this package reproduces the piecewise pattern with `IMAGE_TOKENS_BASELINE = 186`, `IMAGE_TOKENS_PER_EXTRA_TILE = 84`, `IMAGE_TILE_EDGE_PX = 512`, `IMAGE_TILES_MAX = 4`.
+The `deepseek-v4-flash-vision-exp` alias returns identical counts, so the curve is a property of the V4.1 Flash model, not the id. Raw payloads in `reports/raw/probe_P12_v41_flash_live_2026-09-10.jsonl`; the dense sweep is reproduced in [HISTORY.md](../HISTORY.md)'s 2026-09-10 entry. `estimate_image_tokens(w, h)` in this package reproduces the table with `IMAGE_TOKENS_BASELINE = 184` and `IMAGE_TOKENS_ANCHORS` at the measured edges.
+
+> **Superseded:** the 2026-08-22 sweep on the pre-release `deepseek-v4-flash-vision-exp` measured 186 / 270 / 418. Those anchors no longer match the server — the V4.1 Flash generation roughly doubled the per-tile cost and the plateau (418 → 994). If you pinned the old constants, re-measure.
 
 **`detail` parameter.** The OpenAI convention distinguishes `low` / `high` detail; DeepSeek's endpoint does not honour this hint and picks the tile count deterministically from image dimensions. The parameter is accepted for API parity and does not affect the returned estimate.
 

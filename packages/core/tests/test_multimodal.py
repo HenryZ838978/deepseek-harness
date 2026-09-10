@@ -8,15 +8,23 @@ from deepseek_harness import (
     estimate_cache_hit,
     estimate_image_tokens,
     KNOWN_MODELS,
+    DEEPSEEK_FLASH,
     DEEPSEEK_V4_FLASH_VISION_EXP,
     supports_image_input,
 )
 
 
 def test_catalog_includes_vision():
+    # 2026-09-10: the server canonicalised to `deepseek-flash`, which accepts
+    # images; the legacy `-vision-exp` id resolves to it and stays vision-capable.
+    assert DEEPSEEK_FLASH in KNOWN_MODELS
     assert DEEPSEEK_V4_FLASH_VISION_EXP in KNOWN_MODELS
+    assert supports_image_input(DEEPSEEK_FLASH)
     assert supports_image_input(DEEPSEEK_V4_FLASH_VISION_EXP)
-    assert not supports_image_input("deepseek-v4-flash")
+    # the old text-only `deepseek-v4-flash` alias now also routes to flash.
+    assert supports_image_input("deepseek-v4-flash")
+    # `deepseek-v4-pro` does NOT take images; unknown ids default to False.
+    assert not supports_image_input("deepseek-v4-pro")
     assert not supports_image_input("some-random-model")
 
 
@@ -68,26 +76,30 @@ def test_assert_multimodal_shape_rejects_text_part_without_text_field():
 
 
 def test_estimate_image_tokens_low_detail_is_flat():
-    # Measured baseline on 2026-08-22 against deepseek-v4-flash-vision-exp
-    assert estimate_image_tokens(detail="low") == 186
-    assert estimate_image_tokens(100, 100, detail="low") == 186
-    assert estimate_image_tokens(200, 200, detail="low") == 186
-    assert estimate_image_tokens(512, 512, detail="low") == 186
+    # Measured baseline on 2026-09-10 against deepseek-flash (V4.1 Flash).
+    assert estimate_image_tokens(detail="low") == 184
+    assert estimate_image_tokens(100, 100, detail="low") == 184
+    assert estimate_image_tokens(200, 200, detail="low") == 184
+    assert estimate_image_tokens(512, 512, detail="low") == 184
 
 
 def test_estimate_image_tokens_scales_beyond_baseline():
-    # 5-point size sweep against api.deepseek.com, 2026-08-22.
-    # Piecewise anchors match measured server billing within a small margin.
-    assert estimate_image_tokens(513, 513) == 270
-    assert estimate_image_tokens(1000, 1000) == 270
-    assert estimate_image_tokens(1024, 1024) == 270
-    assert estimate_image_tokens(1500, 1500) == 418
-    assert estimate_image_tokens(2048, 2048) == 418
+    # Dense size sweep against api.deepseek.com, 2026-09-10 (deepseek-flash).
+    # Piecewise anchors are the measured points; sizes between them step to the
+    # next anchor. The 2026-08-22 curve (186/270/418) no longer matches the
+    # server after the V4.1 Flash generation change.
+    assert estimate_image_tokens(513, 513) == 274
+    assert estimate_image_tokens(640, 640) == 274
+    assert estimate_image_tokens(768, 768) == 382
+    assert estimate_image_tokens(896, 896) == 508
+    assert estimate_image_tokens(1000, 1000) == 652
+    assert estimate_image_tokens(1024, 1024) == 652
+    assert estimate_image_tokens(1280, 1280) == 994
     # Beyond the last anchor, plateau
-    assert estimate_image_tokens(3000, 3000) == 418
-    assert estimate_image_tokens(5000, 5000) == 418
+    assert estimate_image_tokens(2048, 2048) == 994
+    assert estimate_image_tokens(4096, 4096) == 994
     # Non-square uses the longer edge
-    assert estimate_image_tokens(2000, 300) == 418
+    assert estimate_image_tokens(2000, 300) == 994
 
 
 def test_normalize_usage_passes_reasoning_tokens_through():

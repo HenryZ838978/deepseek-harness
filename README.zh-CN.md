@@ -77,7 +77,7 @@ flowchart LR
     D7["<b>P7-subagent-codex-preflight</b><br/>@openai/codex 缺失"]:::fix
     D8["<b>P8-multimodal-preflight</b><br/>vision 模型 + 无 attachment"]:::fix
     D9["<b>P9-files-quota-scope</b><br/>N 条记录跨 M 个 scope"]:::fix
-    D10["<b>P10-jsonl-repair-unguarded</b><br/>N 个日志带断尾"]:::fix
+    D10["<b>P10-jsonl-repair-race</b><br/>N 个日志带断尾"]:::fix
     D11["<b>P11-plugin-inventory-manifest</b><br/>N 条 entry 落到 dsh 自己生成的 manifest"]:::fix
 
     F1 --> S1 --> D1
@@ -143,7 +143,7 @@ dsh doctor --node
 
 | 探针 | 它告诉你的、官方 Node 侧不会告诉你的 |
 |---|---|
-| **P1-reasoner-skip** | 你的 prompt 让 `deepseek-reasoner` 跳过了自己的思考流。做一次 A/B(裸 prompt vs 加 CoT hint),报 skip rate 差值。 |
+| **P1-reasoner-skip** | 做一次 A/B(裸 prompt vs 加 CoT hint),报 `deepseek-reasoner` 是否在你的 prompt 形状上跳过思考流。历史基线是裸 60% / hint 0%;V4.1 Flash 上该跳过已不可达(见 HISTORY 2026-09-10),现兼作回归探测。 |
 | **P2-bom**           | 你本地有带 UTF-8 BOM 的插件 `package.json`,`dsh plugin add` 会崩([#2798](https://github.com/deepseek-ai/deepseek-harness/discussions/2798))。离线扫。 |
 | **P3-serve**         | 你的 `dsh web` fence 在非 loopback Origin 下会**静默拒绝**数据层,页面永停在选工作区([#2573](https://github.com/deepseek-ai/deepseek-harness/discussions/2573))。 |
 | **P4-spill**         | 你的 tmp 目录不可写 —— 子进程 spill 一发就 `exit 1`(`spillAll()` 的 `openSync/writeSync` 无 try/catch)。 |
@@ -152,7 +152,7 @@ dsh doctor --node
 | **P7-subagent-codex-preflight** | 你的 profile 引用了 Codex subagent provider,但 `@openai/codex` 没装 —— plugin load 时 `ERR_MODULE_NOT_FOUND`,整个 dsh 启动崩。 |
 | **P8-multimodal-preflight** | 你的 composition 用了 vision 模型,但没挂 attachment provider —— 带图 user turn 落盘一半(有图无回复)。 |
 | **P9-files-quota-scope** | 你本地 Files API upload index 有记录,而另一个用同一 API key 的 dsh 安装可以通过 `reclaimOldestOwned` 静默删掉你的 file_id —— 下次带图请求 prefix cache 全 miss。 |
-| **P10-jsonl-repair-unguarded** | 你的会话日志带着断尾,jsonl 后端下次打开时会直接截断,**不复查这截尾巴还是不是它扫到的那截**。原本会复查并抛 `repair is stale` 的 sqlite 后端在 0.1.2-alpha.3 被整个删了,jsonl 现在是唯一后端。在这个窗口里另一个进程追加的事件,会被静默丢掉。 |
+| **P10-jsonl-repair-race** | 你的会话日志带着断尾,**0.1.5 之前**的 jsonl 后端下次写打开时会直接截断,**不复查这截尾巴还是不是它扫到的那截**;在这个窗口里另一个进程追加的事件会被静默丢掉。上游已在 0.1.5-alpha.1 用跨进程 `flock(2)` 写租约(`session-persistence-jsonl/src/lease.ts`)修好;本探针现在把断尾报成「你的 harness 老了」信号,而非未修缺陷。 |
 | **P11-plugin-inventory-manifest** | 你 profile 里的 `package.json` —— dsh 自己生成的那份 —— 有 `name` 没 `version`,而默认开启的 `dsh_plugin_packages` 请求字段遇到本地插件(`name: ./plugin.js`)落到这种 manifest 时就抛。于是这个 profile 里**每一次请求**都在发 HTTP 之前以 `REQUEST_EXTENSION` 失败,而 user turn 已经落盘了。 |
 
 每一条 WARN/FAIL 都给出具体修复。这个 doctor **不是**官方运行时的竞品,是它的**证人**。

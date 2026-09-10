@@ -15,6 +15,7 @@ from .reasoning import ReasoningLifecycle
 from .tool_calls import salvage_tool_calls_from_content
 from .normalize import assert_multimodal_shape
 from .models import (
+    DEEPSEEK_FLASH,
     DEEPSEEK_V4_PRO,
     DEEPSEEK_V4_FLASH,
     DEEPSEEK_REASONER,
@@ -43,6 +44,7 @@ __all__ = [
     "estimate_cache_hit",
     "normalize_usage",
     "estimate_image_tokens",
+    "DEEPSEEK_FLASH",
     "DEEPSEEK_V4_PRO",
     "DEEPSEEK_V4_FLASH",
     "DEEPSEEK_REASONER",
@@ -57,4 +59,4 @@ __all__ = [
     "StreamShapeError",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"

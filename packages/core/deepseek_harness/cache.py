@@ -36,30 +36,44 @@ PRICE_PER_M_INPUT_HIT = 0.0028
 PRICE_PER_M_OUTPUT = 0.28
 
 
-# Vision token accounting for `deepseek-v4-flash-vision-exp` (added 0.4.0).
-# Constants below are MEASURED against api.deepseek.com on 2026-08-22 with a
-# 5-point size sweep (100², 200², 512², 1000², 1500² solid PNGs, low detail).
-# Raw data preserved under `overnight/vision-live/sweep.json` on the probe host.
+# Vision token accounting (added 0.4.0; RECALIBRATED 2026-09-10 for V4.1 Flash).
+# Constants below are MEASURED against api.deepseek.com. The 2026-08-22 sweep
+# used `deepseek-v4-flash-vision-exp`; the 2026-09-10 sweep used the canonical
+# `deepseek-flash` (V4.1 Flash) and its `-vision-exp` alias, which return
+# identical counts — the token curve changed with the model generation, not the
+# id. Raw data: reports/raw/probe_P12_v41_flash_live_2026-09-10.jsonl and the
+# dense sweep in HISTORY.md's 2026-09-10 entry.
 #
-# Empirical anchor table (image tokens = prompt_tokens - text/wrapper ≈ 13):
-#   long_edge ≤ 512  →  186
-#   long_edge ≤ 1024 →  270
-#   long_edge ≤ 2048 →  418
-#   long_edge > 2048 →  418  (plateau; server tile cap)
+# Empirical anchor table (image tokens = prompt_tokens - text/wrapper; the
+# text-only wrapper measured 32 on 2026-09-10):
+#   long_edge ≤ 512   →  184   (baseline)
+#   long_edge ≤ 640   →  274
+#   long_edge ≤ 768   →  382
+#   long_edge ≤ 896   →  508
+#   long_edge ≤ 1024  →  652
+#   long_edge ≤ 1280  →  994
+#   long_edge > 1280  →  994  (plateau; server tile cap)
 #
-# DeepSeek has not published an authoritative table; when they do, replace
-# these anchors and re-run the sweep to confirm. Values are conservative
-# lower bounds — the actual server billing may go slightly higher.
-IMAGE_TOKENS_BASELINE = 186
+# Caveat: the anchors between 512 and 1024 px are linear interpolations
+# between measured points (640/768/896/1024 were measured exactly; the decade
+# boundaries are set at those measured sizes). Re-run the dense sweep before
+# relying on an intermediate size.
+IMAGE_TOKENS_BASELINE = 184
 IMAGE_TOKENS_ANCHORS: tuple[tuple[int, int], ...] = (
-    (512, 186),
-    (1024, 270),
-    (2048, 418),
+    (512, 184),
+    (640, 274),
+    (768, 382),
+    (896, 508),
+    (1024, 652),
+    (1280, 994),
 )
-IMAGE_TOKENS_PLATEAU = 418
+IMAGE_TOKENS_PLATEAU = 994
 IMAGE_TILE_EDGE_PX = 512  # exposed for spec/07 §7.2 formula callers
 
 # Retained for the 0.3.0 API surface (older callers referenced these names).
+# These named the pre-V4.1 tile model (baseline + N×84, capped at 4 tiles);
+# that model no longer matches the server, so they are kept only so older
+# imports resolve. New code should read IMAGE_TOKENS_ANCHORS.
 IMAGE_TOKENS_LOW_DETAIL = IMAGE_TOKENS_BASELINE
 IMAGE_TOKENS_HIGH_DETAIL_BASE = IMAGE_TOKENS_BASELINE
 IMAGE_TOKENS_HIGH_DETAIL_PER_TILE = 84
@@ -158,10 +172,11 @@ def estimate_image_tokens(
 ) -> int:
     """Estimate the vision-token cost DeepSeek charges for one image.
 
-    Measured against api.deepseek.com on 2026-08-22 with `deepseek-v4-flash-vision-exp`:
-      - long_edge ≤ 512 px  → IMAGE_TOKENS_BASELINE (186)
-      - long_edge ≤ 1024 px → baseline + IMAGE_TOKENS_PER_EXTRA_TILE per tile row
-      - long_edge > 1024 px → capped at IMAGE_TILES_MAX tiles worth
+    Measured against api.deepseek.com on 2026-09-10 with `deepseek-flash`
+    (V4.1 Flash), dense sweep:
+      - long_edge ≤ 512 px  → IMAGE_TOKENS_BASELINE (184)
+      - each larger measured size → its anchor, up to IMAGE_TOKENS_PLATEAU
+      - long_edge > 1280 px → capped at IMAGE_TOKENS_PLATEAU (994)
 
     Width/height are optional. When omitted the baseline is returned. `detail`
     is accepted for API parity with the OpenAI convention but is not used —

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deepseek-harness"
-version = "0.3.0"
+version = "0.3.1"
 description = "Protocol-aware client for DeepSeek V4-Pro / V4-Flash / Vision. Survives the 16 documented quirks; ships the cache discount; multimodal contract per spec/07."
 readme = "README.md"
 requires-python = ">=3.9"

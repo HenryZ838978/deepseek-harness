@@ -78,7 +78,7 @@ flowchart LR
     D7["<b>P7-subagent-codex-preflight</b><br/>@openai/codex missing"]:::fix
     D8["<b>P8-multimodal-preflight</b><br/>vision model + no attachment"]:::fix
     D9["<b>P9-files-quota-scope</b><br/>N records across M scopes"]:::fix
-    D10["<b>P10-jsonl-repair-unguarded</b><br/>N logs carry a torn tail"]:::fix
+    D10["<b>P10-jsonl-repair-race</b><br/>N logs carry a torn tail"]:::fix
     D11["<b>P11-plugin-inventory-manifest</b><br/>N entries resolve to dsh's own manifest"]:::fix
 
     F1 --> S1 --> D1
@@ -145,7 +145,7 @@ Eleven probes for [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-h
 
 | probe | what it tells you the Node stack won't |
 |---|---|
-| **P1-reasoner-skip** | Your prompt shape makes `deepseek-reasoner` skip its reasoning stream. Runs an A/B (bare prompt vs. +CoT-hint), reports the skip-rate delta. |
+| **P1-reasoner-skip** | Runs an A/B (bare prompt vs. +CoT-hint) and reports whether `deepseek-reasoner` skips its reasoning stream on your prompt shape. Historical baseline was bare 60% / hinted 0%; on V4.1 Flash the skip is no longer reachable (see HISTORY 2026-09-10), so this now doubles as a regression detector. |
 | **P2-bom**           | You have a plugin `package.json` with a UTF-8 BOM — `dsh plugin add` will crash on it ([#2798](https://github.com/deepseek-ai/deepseek-harness/discussions/2798)). Offline scan. |
 | **P3-serve**         | Your `dsh web` fence silently rejects the data layer under a non-loopback Origin ([#2573](https://github.com/deepseek-ai/deepseek-harness/discussions/2573)). |
 | **P4-spill**         | Your tmp directory is unwritable — the subprocess spill path will `exit 1` (`spillAll()` has no try/catch around `openSync/writeSync`). |
@@ -154,7 +154,7 @@ Eleven probes for [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-h
 | **P7-subagent-codex-preflight** | Your profile references the Codex subagent provider but `@openai/codex` is not installed — plugin load crashes at boot with `ERR_MODULE_NOT_FOUND`. |
 | **P8-multimodal-preflight** | Your composition names a vision model but no attachment provider is mounted — the user's image-bearing turn commits half a session log entry (image without reply). |
 | **P9-files-quota-scope** | Your local Files API upload index has records that another dsh install using the same API key can silently delete via `reclaimOldestOwned` — next image request breaks the prefix cache. |
-| **P10-jsonl-repair-unguarded** | Your session logs carry a torn tail that the jsonl backend will truncate on next open with no staleness re-check. The sqlite backend that did re-check (and threw `repair is stale`) was removed in 0.1.2-alpha.3, so jsonl is now the only backend. A second process appending in that window loses its committed event silently. |
+| **P10-jsonl-repair-race** | Your session logs carry a torn tail that a **pre-0.1.5** jsonl backend would truncate on next write-open with no staleness re-check, while a second process appending in that window loses its committed event silently. Fixed upstream in 0.1.5-alpha.1 by the cross-process `flock(2)` write lease (`session-persistence-jsonl/src/lease.ts`); the probe reports torn tails as a "your harness is old" signal rather than an open defect. |
 | **P11-plugin-inventory-manifest** | Your profile's `package.json` — the one dsh generated — has a `name` and no `version`, and the default-on `dsh_plugin_packages` request field throws on exactly that shape when a local plugin (`name: ./plugin.js`) resolves to it. Every request in that profile then fails `REQUEST_EXTENSION` before HTTP, after the user turn was already written. |
 
 Each finding is a WARN or FAIL with a concrete fix. The doctor is not a

@@ -30,6 +30,11 @@ This probe scans reachable dsh Profile/composition files for:
   (b) presence of an attachment provider (attachment-local etc.)
 If (a) is present without (b) — or without inputModalities including
 'image' on the referenced model — flag it.
+
+2026-09-10: the default catalog gained `deepseek-flash` with
+`inputModalities: ['text', 'image']`, so an image-capable row is now present
+without the user ever naming a vision model. The `flash` hint was added so a
+profile pinning it is still caught.
 """
 from __future__ import annotations
 
@@ -49,7 +54,7 @@ _PROFILE_ROOTS = [
     "./composition.yaml",
 ]
 
-_IMAGE_MODEL_HINTS = ("vl2", "vision", "vl-")  # deepseek vl2, vision variants
+_IMAGE_MODEL_HINTS = ("vl2", "vision", "vl-", "flash")  # vl2 / vision / v4.1 flash
 
 
 def _iter_config_files() -> list[Path]:

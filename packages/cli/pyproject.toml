@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deepseek-harness-cli"
-version = "0.6.0"
-description = "Command-line companion to deepseek-harness. `dsh doctor --node` (ten witness probes) + text/vision chat, cache pre-flight, contract validator."
+version = "0.7.0"
+description = "Command-line companion to deepseek-harness. `dsh doctor --node` (eleven witness probes) + text/vision chat, cache pre-flight, contract validator."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
