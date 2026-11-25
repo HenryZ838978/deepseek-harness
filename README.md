@@ -5,13 +5,13 @@
 
 # `deepseek-harness`
 
-### Protocol-aware adapters for DeepSeek V4-Pro, V4-Flash, and V4-Flash-Vision-Exp
+### Protocol-aware adapters for DeepSeek V4.1-Flash (`deepseek-flash`) and V4-Pro
 
 [![pypi](https://img.shields.io/pypi/v/deepseek-harness?label=pip%20install&color=3776AB&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness/)
 [![cli](https://img.shields.io/pypi/v/deepseek-harness-cli?label=dsh%20doctor&color=22c55e&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness-cli/)
 [![skill](https://img.shields.io/badge/Anthropic-SKILL.md-D97757?logo=anthropic&logoColor=white)](packages/skill/SKILL.md)
 [![probes](https://img.shields.io/badge/probes-12-1f6feb)](reports/probes/)
-[![doctor](https://img.shields.io/badge/dsh%20doctor%20--node-11%20probes-1f6feb)](packages/cli/deepseek_harness_cli/doctor_node/)
+[![doctor](https://img.shields.io/badge/dsh%20doctor%20--node-12%20probes-1f6feb)](packages/cli/deepseek_harness_cli/doctor_node/)
 [![findings](https://img.shields.io/badge/findings-16-22c55e)](reports/REPORT_2026-05-09.md)
 [![ceiling](https://img.shields.io/badge/context%20ceiling-1%2C048%2C576-orange)](spec/06_context_limits.md)
 [![cache discount](https://img.shields.io/badge/cache%20discount-50%C3%97-yellow)](spec/04_cache_hit.md)
@@ -33,6 +33,11 @@ A single protocol contract distributed in four wrapper formats. Designed to meet
 > Node agent framework.
 >
 > - **What broke in each official rc release, one line per row:** [HISTORY.md](HISTORY.md)
+> - **Latest audit — 2026-11-25, `@deepseek-ai/dsh` 0.2.2-rc.5 / 0.2.3-alpha.2:**
+>   - Upstream fixed two defects first found here: P4 (spill crash) and P11 (plugin inventory).
+>   - P5 had silently skipped every compressed `session.v4.jsonl.zstd` log. It now decodes them and was checked against official dsh refusing the same files.
+>   - New P13: `deepseek-v4-pro` with thinking off calls unrelated tools on Chinese prompts (7/12).
+>   - Details: [HISTORY 2026-11-25](HISTORY.md).
 > - **Full dated timeline:** [Provenance](#provenance)
 
 ---
@@ -48,14 +53,15 @@ flowchart LR
     F1["Short prompt on<br/>deepseek-reasoner"]:::fail
     F2["Plugin package.json<br/>saved with UTF-8 BOM"]:::fail
     F3["dsh web hit via<br/>non-loopback hostname"]:::fail
-    F4["tmp dir<br/>unwritable"]:::fail
+    F4["tmp dir unwritable<br/><i>(pre-0.1.7-alpha.2)</i>"]:::fail
     F5["Two dsh processes<br/>on one workspace"]:::fail
     F6["MY_SERVICE_KEY<br/>set in env"]:::fail
     F7["Codex provider row<br/>without @openai/codex"]:::fail
     F8["Vision model, no<br/>attachment-local plugin"]:::fail
     F9["Two dsh installs<br/>sharing one API key"]:::fail
     F10["Crash left a torn<br/>tail in a session log"]:::fail
-    F11["A <code>./plugin.js</code> line<br/>in the profile patch"]:::fail
+    F11["A <code>./plugin.js</code> line in the<br/>profile patch <i>(pre-0.2.1-alpha.2)</i>"]:::fail
+    F13["v4-pro with <code>effort: off</code>,<br/>tools mounted, Chinese prompt"]:::fail
 
     S1["Thinking-mode history<br/><i>looks incomplete</i>"]:::sym
     S2["<code>dsh plugin add</code><br/>crashes on JSON.parse"]:::sym
@@ -68,18 +74,20 @@ flowchart LR
     S9["<code>unknown file_id</code>,<br/>image re-upload,<br/>prefix cache misses"]:::sym
     S10["Repair warns, truncates,<br/><i>a second process's event<br/>vanishes with it</i>"]:::sym
     S11["Every request fails<br/><code>extension preparation failed</code>,<br/><i>no HTTP ever sent</i>"]:::sym
+    S13["Model calls get_weather<br/>with <code>city: #quot;17乘以23#quot;</code>"]:::sym
 
-    D1["<b>P1-reasoner-skip</b><br/>bare 60% · +hint 0% · Δ+60%"]:::fix
+    D1["<b>P1-reasoner-skip</b><br/>bare 40% · +hint 0% (2026-11)"]:::fix
     D2["<b>P2-bom</b><br/>1/N manifests → BOM"]:::fix
     D3["<b>P3-serve</b><br/>mux 403 under evil Origin"]:::fix
     D4["<b>P4-spill</b><br/>EACCES on /tmp probe"]:::fix
-    D5["<b>P5-seqgap</b><br/>seq gap at line N, awaiting turn/end"]:::fix
+    D5["<b>P5-seqgap</b><br/>seq gap at line N<br/>(reads v4 .zstd logs)"]:::fix
     D6["<b>P6-subagent-env-scrub</b><br/>N user vars will be stripped"]:::fix
     D7["<b>P7-subagent-codex-preflight</b><br/>@openai/codex missing"]:::fix
     D8["<b>P8-multimodal-preflight</b><br/>vision model + no attachment"]:::fix
     D9["<b>P9-files-quota-scope</b><br/>N records across M scopes"]:::fix
     D10["<b>P10-jsonl-repair-race</b><br/>N logs carry a torn tail"]:::fix
     D11["<b>P11-plugin-inventory-manifest</b><br/>N entries resolve to dsh's own manifest"]:::fix
+    D13["<b>P13-tool-thinking</b><br/>spurious tool rate, thinking off vs on"]:::fix
 
     F1 --> S1 --> D1
     F2 --> S2 --> D2
@@ -92,6 +100,7 @@ flowchart LR
     F9 --> S9 --> D9
     F10 --> S10 --> D10
     F11 --> S11 --> D11
+    F13 --> S13 --> D13
 
     subgraph L1["failure mode"]
       F1
@@ -105,6 +114,7 @@ flowchart LR
       F9
       F10
       F11
+      F13
     end
     subgraph L2["what you see"]
       S1
@@ -118,6 +128,7 @@ flowchart LR
       S9
       S10
       S11
+      S13
     end
     subgraph L3["dsh doctor --node · one line"]
       D1
@@ -131,6 +142,7 @@ flowchart LR
       D9
       D10
       D11
+      D13
     end
 ```
 
@@ -140,19 +152,19 @@ export DEEPSEEK_API_KEY=sk-...
 dsh doctor --node
 ```
 
-Eleven probes for [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)
+Twelve probes for [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)
 (the official Node runtime) — each reports something its own tooling does not:
 
 | probe | what it tells you the Node stack won't |
 |---|---|
-| **P1-reasoner-skip** | Runs an A/B (bare prompt vs. +CoT-hint) and reports whether `deepseek-reasoner` skips its reasoning stream on your prompt shape. Historical baseline was bare 60% / hinted 0%; on V4.1 Flash the skip is no longer reachable (see HISTORY 2026-09-10), so this now doubles as a regression detector. |
+| **P1-reasoner-skip** | Runs an A/B (bare prompt vs. +CoT-hint) and reports whether `deepseek-reasoner` skips its reasoning stream on your prompt shape. Historical baseline was bare 60% / hinted 0%. The skip vanished on V4.1 Flash (0/12, 2026-09-10) and came back after the 1017 model update (bare 4/10, 2026-11-25). |
 | **P2-bom**           | You have a plugin `package.json` with a UTF-8 BOM — `dsh plugin add` will crash on it ([#2798](https://github.com/deepseek-ai/deepseek-harness/discussions/2798)). Offline scan. |
 | **P3-serve**         | Your `dsh web` fence silently rejects the data layer under a non-loopback Origin ([#2573](https://github.com/deepseek-ai/deepseek-harness/discussions/2573)). |
 | **P4-spill**         | Your tmp directory is unwritable. On a **pre-0.1.7-alpha.2** harness, the subprocess spill path will `exit 1`, because `spillAll()` has no try/catch around `openSync/writeSync`. Fixed upstream in 0.1.7-alpha.2: failures are now contained and logged. The probe reads the installed version and reports a warn there. |
-| **P5-seqgap**        | Your session log — or an Agent Teams log — already has a concurrent-writer seq gap ([#2571](https://github.com/deepseek-ai/deepseek-harness/discussions/2571)). Two failure modes: silent truncation, or permanent corrupt on the next `turn/end`. |
+| **P5-seqgap**        | Your session log — or an Agent Teams log — already has a concurrent-writer seq gap ([#2571](https://github.com/deepseek-ai/deepseek-harness/discussions/2571)). Two failure modes: silent truncation, or permanent corrupt on the next `turn/end`. Reads the compressed `session.v4.jsonl.zstd` logs every release since 0.1.7 writes; verdicts match official dsh refusing the same files. |
 | **P6-subagent-env-scrub** | Any env var whose name contains `KEY`/`TOKEN`/`SECRET`/`PASSWORD` is silently stripped from Claude Code / Codex subagent children by `SENSITIVE_ENV_PATTERN` — including `AWS_ACCESS_KEY_ID` and friends you didn't mean as credentials. |
 | **P7-subagent-codex-preflight** | Your profile references the Codex subagent provider but `@openai/codex` is not installed — plugin load crashes at boot with `ERR_MODULE_NOT_FOUND`. |
-| **P8-multimodal-preflight** | Your composition names a vision model but no attachment provider is mounted — the user's image-bearing turn commits half a session log entry (image without reply). |
+| **P8-multimodal-preflight** | Your composition names a vision model but no attachment provider is mounted. The user's image-bearing turn then commits half a session log entry (image without reply). On ≥0.1.7, llm-deepseek is mounted by the bundles. The remaining hazard: an image sent to text-only `deepseek-v4-pro` throws after the turn is appended. |
 | **P9-files-quota-scope** | Your local Files API upload index has records that another dsh install using the same API key can silently delete via `reclaimOldestOwned` — next image request breaks the prefix cache. |
 | **P10-jsonl-repair-race** | Your session logs carry a torn tail that a **pre-0.1.5** jsonl backend would truncate on next write-open with no staleness re-check, while a second process appending in that window loses its committed event silently. Fixed upstream in 0.1.5-alpha.1 by the cross-process `flock(2)` write lease (`session-persistence-jsonl/src/lease.ts`); the probe reports torn tails as a "your harness is old" signal rather than an open defect. |
 | **P11-plugin-inventory-manifest** | Your profile's `package.json` — the one dsh generated — has a `name` and no `version`, and the default-on `dsh_plugin_packages` request field throws on exactly that shape when a local plugin (`name: ./plugin.js`) resolves to it. Every request in that profile then fails `REQUEST_EXTENSION` before HTTP, after the user turn was already written. Fixed upstream in 0.2.1-alpha.2; on a fixed harness the probe passes and reports what the pre-fix verdict would have been. |

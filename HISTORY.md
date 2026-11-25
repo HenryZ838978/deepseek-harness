@@ -177,7 +177,7 @@ Dist-tags at audit time: `{"latest":"0.1.5-rc.1","next":"0.1.5-rc.1","alpha":"0.
 
 ---
 
-## 2026-11-25 · `@deepseek-ai/dsh` **0.2.2-rc.5** (`latest`) and **0.2.3-alpha.2** (`alpha`) · `deepseek-harness-cli` on `main` (unreleased)
+## 2026-11-25 · `@deepseek-ai/dsh` **0.2.2-rc.5** (`latest`) and **0.2.3-alpha.2** (`alpha`) · `deepseek-harness-cli` **0.8.0** (this repo, PyPI)
 
 Dist-tags at audit time: `{"latest":"0.2.2-rc.5","next":"0.2.2-rc.5","alpha":"0.2.3-alpha.2"}`. This entry covers **28 releases** since `0.1.5-rc.1`. Git tags are now prefixed `dsh-v` (`refs/tags/dsh-v0.2.2-rc.5`), so a codeload URL built from the bare version returns 404. The official harness was installed from npm under Node v24.22.3 on a clean host; `engines` now requires Node ≥ 24.9. It ran one real `dsh headless --json` task there, and this repo's `dsh doctor --node` ran against that install. The source checks below were run against the `dsh-v0.2.2-rc.5` and `dsh-v0.2.3-alpha.2` tarballs. Evidence: `reports/raw/audit_0.2.2-rc.5_2026-11-25/`.
 

@@ -5,13 +5,13 @@
 
 # `deepseek-harness`
 
-### DeepSeek V4-Pro / V4-Flash / V4-Flash-Vision-Exp 的协议感知适配层
+### DeepSeek V4.1-Flash(`deepseek-flash`)/ V4-Pro 的协议感知适配层
 
 [![pypi](https://img.shields.io/pypi/v/deepseek-harness?label=pip%20install&color=3776AB&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness/)
 [![cli](https://img.shields.io/pypi/v/deepseek-harness-cli?label=dsh%20doctor&color=22c55e&logo=python&logoColor=white)](https://pypi.org/project/deepseek-harness-cli/)
 [![skill](https://img.shields.io/badge/Anthropic-SKILL.md-D97757?logo=anthropic&logoColor=white)](packages/skill/SKILL.md)
 [![probes](https://img.shields.io/badge/probes-12-1f6feb)](reports/probes/)
-[![doctor](https://img.shields.io/badge/dsh%20doctor%20--node-11%20probes-1f6feb)](packages/cli/deepseek_harness_cli/doctor_node/)
+[![doctor](https://img.shields.io/badge/dsh%20doctor%20--node-12%20probes-1f6feb)](packages/cli/deepseek_harness_cli/doctor_node/)
 [![findings](https://img.shields.io/badge/findings-16-22c55e)](reports/REPORT_2026-05-09.md)
 [![ceiling](https://img.shields.io/badge/context%20ceiling-1%2C048%2C576-orange)](spec/06_context_limits.md)
 [![cache discount](https://img.shields.io/badge/cache%20discount-50%C3%97-yellow)](spec/04_cache_hit.md)
@@ -32,6 +32,11 @@
 > **2026-08-13**)三个月。**不是**官方 Node agent 框架的 fork 或分发版。
 >
 > - **官方每个 rc 版本各错在哪儿(每行一条):** [HISTORY.md](HISTORY.md)
+> - **最近一次审计 —— 2026-11-25,`@deepseek-ai/dsh` 0.2.2-rc.5 / 0.2.3-alpha.2:**
+>   - 上游修掉了本仓最先发现的两个缺陷:P4(spill 崩溃)和 P11(插件清单)。
+>   - P5 此前一直悄悄跳过压缩日志 `session.v4.jsonl.zstd`;现在能解码,并已对照官方 dsh 拒开同一批文件的报错验证过。
+>   - 新增 P13:`deepseek-v4-pro` 关思考时,会对无关的中文提问乱调工具(7/12)。
+>   - 详见 [HISTORY 2026-11-25](HISTORY.md)。
 > - **完整日期时间线:** [Provenance](#provenance)
 
 ---
@@ -47,14 +52,15 @@ flowchart LR
     F1["短 prompt 交给<br/>deepseek-reasoner"]:::fail
     F2["插件 package.json<br/>存成 UTF-8 BOM"]:::fail
     F3["用非 loopback 主机名<br/>访问 dsh web"]:::fail
-    F4["tmp 目录<br/>不可写"]:::fail
+    F4["tmp 目录不可写<br/><i>(0.1.7-alpha.2 之前)</i>"]:::fail
     F5["两个 dsh 进程<br/>指向同一 workspace"]:::fail
     F6["env 里设了<br/>MY_SERVICE_KEY"]:::fail
     F7["profile 引 Codex 但<br/>没装 @openai/codex"]:::fail
     F8["用 vision 模型但<br/>没挂 attachment-local"]:::fail
     F9["两个 dsh 安装<br/>共用一个 API key"]:::fail
     F10["崩溃后会话日志<br/>留下一截断尾"]:::fail
-    F11["把 <code>./plugin.js</code> 写进<br/>profile 的 patch"]:::fail
+    F11["把 <code>./plugin.js</code> 写进<br/>profile 的 patch <i>(0.2.1-alpha.2 之前)</i>"]:::fail
+    F13["v4-pro 设 <code>effort: off</code>,<br/>挂着工具,中文提问"]:::fail
 
     S1["思考模式历史<br/><i>看起来不完整</i>"]:::sym
     S2["<code>dsh plugin add</code><br/>JSON.parse 崩"]:::sym
@@ -67,18 +73,20 @@ flowchart LR
     S9["<code>unknown file_id</code>,<br/>图片被迫重传,<br/>prefix cache 全 miss"]:::sym
     S10["修复时警告一句就截断,<br/><i>另一进程刚提交的事件<br/>跟着一起没了</i>"]:::sym
     S11["每次请求都报<br/><code>extension preparation failed</code>,<br/><i>连 HTTP 都没发</i>"]:::sym
+    S13["模型调 get_weather,<br/><code>city: #quot;17乘以23#quot;</code>"]:::sym
 
-    D1["<b>P1-reasoner-skip</b><br/>裸 60% · +hint 0% · Δ+60%"]:::fix
+    D1["<b>P1-reasoner-skip</b><br/>裸 40% · +hint 0%(2026-11)"]:::fix
     D2["<b>P2-bom</b><br/>1/N 个 manifest 带 BOM"]:::fix
     D3["<b>P3-serve</b><br/>evil Origin 下 mux 403"]:::fix
     D4["<b>P4-spill</b><br/>/tmp 探针 EACCES"]:::fix
-    D5["<b>P5-seqgap</b><br/>第 N 行 seq gap,等 turn/end 引爆"]:::fix
+    D5["<b>P5-seqgap</b><br/>第 N 行 seq gap<br/>(可读 v4 .zstd 日志)"]:::fix
     D6["<b>P6-subagent-env-scrub</b><br/>N 个 user env 会被剥掉"]:::fix
     D7["<b>P7-subagent-codex-preflight</b><br/>@openai/codex 缺失"]:::fix
     D8["<b>P8-multimodal-preflight</b><br/>vision 模型 + 无 attachment"]:::fix
     D9["<b>P9-files-quota-scope</b><br/>N 条记录跨 M 个 scope"]:::fix
     D10["<b>P10-jsonl-repair-race</b><br/>N 个日志带断尾"]:::fix
     D11["<b>P11-plugin-inventory-manifest</b><br/>N 条 entry 落到 dsh 自己生成的 manifest"]:::fix
+    D13["<b>P13-tool-thinking</b><br/>关思考 vs 开思考的乱调工具率"]:::fix
 
     F1 --> S1 --> D1
     F2 --> S2 --> D2
@@ -91,6 +99,7 @@ flowchart LR
     F9 --> S9 --> D9
     F10 --> S10 --> D10
     F11 --> S11 --> D11
+    F13 --> S13 --> D13
 
     subgraph L1["失效原因"]
       F1
@@ -104,6 +113,7 @@ flowchart LR
       F9
       F10
       F11
+      F13
     end
     subgraph L2["你看到的症状"]
       S1
@@ -117,6 +127,7 @@ flowchart LR
       S9
       S10
       S11
+      S13
     end
     subgraph L3["dsh doctor --node · 一行诊断"]
       D1
@@ -130,6 +141,7 @@ flowchart LR
       D9
       D10
       D11
+      D13
     end
 ```
 
@@ -139,18 +151,18 @@ export DEEPSEEK_API_KEY=sk-...
 dsh doctor --node
 ```
 
-十一条针对 [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)(官方 Node 运行时)的探针 —— 每一条都在报告官方自家工具**看不到**的事:
+十二条针对 [`@deepseek-ai/dsh`](https://github.com/deepseek-ai/deepseek-harness)(官方 Node 运行时)的探针 —— 每一条都在报告官方自家工具**看不到**的事:
 
 | 探针 | 它告诉你的、官方 Node 侧不会告诉你的 |
 |---|---|
-| **P1-reasoner-skip** | 做一次 A/B(裸 prompt vs 加 CoT hint),报 `deepseek-reasoner` 是否在你的 prompt 形状上跳过思考流。历史基线是裸 60% / hint 0%;V4.1 Flash 上该跳过已不可达(见 HISTORY 2026-09-10),现兼作回归探测。 |
+| **P1-reasoner-skip** | 做一次 A/B(裸 prompt vs 加 CoT hint),报 `deepseek-reasoner` 是否在你的 prompt 形状上跳过思考流。历史基线是裸 60% / hint 0%;V4.1 Flash 上一度消失(0/12,2026-09-10),1017 模型更新后又出现(裸 4/10,2026-11-25)。 |
 | **P2-bom**           | 你本地有带 UTF-8 BOM 的插件 `package.json`,`dsh plugin add` 会崩([#2798](https://github.com/deepseek-ai/deepseek-harness/discussions/2798))。离线扫。 |
 | **P3-serve**         | 你的 `dsh web` fence 在非 loopback Origin 下会**静默拒绝**数据层,页面永停在选工作区([#2573](https://github.com/deepseek-ai/deepseek-harness/discussions/2573))。 |
 | **P4-spill**         | 你的 tmp 目录不可写。**0.1.7-alpha.2 之前**的 harness 上,子进程一触发 spill 就 `exit 1`(`spillAll()` 的 `openSync/writeSync` 无 try/catch)。上游已在 0.1.7-alpha.2 修复,失败会被捕获并记日志;探针会读取已安装版本,在已修版本上降为 warn。 |
-| **P5-seqgap**        | 你的 session log —— 或 Agent Teams log —— 已经有 concurrent-writer seq gap([#2571](https://github.com/deepseek-ai/deepseek-harness/discussions/2571))。两种失败模式:静默截断,或下次 `turn/end` 触发永久 corrupt。 |
+| **P5-seqgap**        | 你的 session log —— 或 Agent Teams log —— 已经有 concurrent-writer seq gap([#2571](https://github.com/deepseek-ai/deepseek-harness/discussions/2571))。两种失败模式:静默截断,或下次 `turn/end` 触发永久 corrupt。0.1.7 起所有版本写的都是压缩日志 `session.v4.jsonl.zstd`,本探针能直接读,判定与官方 dsh 拒开同一文件的报错一致。 |
 | **P6-subagent-env-scrub** | 任何名字含 `KEY`/`TOKEN`/`SECRET`/`PASSWORD` 的 env 变量会被 `SENSITIVE_ENV_PATTERN` 从 Claude Code / Codex 子 agent 里静默剥掉 —— 包括 `AWS_ACCESS_KEY_ID` 这种你压根不当凭据的名字。 |
 | **P7-subagent-codex-preflight** | 你的 profile 引用了 Codex subagent provider,但 `@openai/codex` 没装 —— plugin load 时 `ERR_MODULE_NOT_FOUND`,整个 dsh 启动崩。 |
-| **P8-multimodal-preflight** | 你的 composition 用了 vision 模型,但没挂 attachment provider —— 带图 user turn 落盘一半(有图无回复)。 |
+| **P8-multimodal-preflight** | 你的 composition 用了 vision 模型,但没挂 attachment provider,结果带图的 user turn 只落盘一半(有图无回复)。0.1.7 起 llm-deepseek 改由组合包挂载;剩下的风险是:图片发给只收文本的 `deepseek-v4-pro` 时,user turn 已经写入,随后才抛错。 |
 | **P9-files-quota-scope** | 你本地 Files API upload index 有记录,而另一个用同一 API key 的 dsh 安装可以通过 `reclaimOldestOwned` 静默删掉你的 file_id —— 下次带图请求 prefix cache 全 miss。 |
 | **P10-jsonl-repair-race** | 你的会话日志带着断尾,**0.1.5 之前**的 jsonl 后端下次写打开时会直接截断,**不复查这截尾巴还是不是它扫到的那截**;在这个窗口里另一个进程追加的事件会被静默丢掉。上游已在 0.1.5-alpha.1 用跨进程 `flock(2)` 写租约(`session-persistence-jsonl/src/lease.ts`)修好;本探针现在把断尾报成「你的 harness 老了」信号,而非未修缺陷。 |
 | **P11-plugin-inventory-manifest** | 你 profile 里的 `package.json` —— dsh 自己生成的那份 —— 有 `name` 没 `version`,而默认开启的 `dsh_plugin_packages` 请求字段遇到本地插件(`name: ./plugin.js`)落到这种 manifest 时就抛。于是这个 profile 里**每一次请求**都在发 HTTP 之前以 `REQUEST_EXTENSION` 失败,而 user turn 已经落盘了。上游已在 0.2.1-alpha.2 修复;在已修版本上探针报 pass,并附上修复前会给出的判定。 |
