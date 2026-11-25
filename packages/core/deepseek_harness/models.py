@@ -30,6 +30,18 @@ DEEPSEEK_V4_PRO: Final[str] = "deepseek-v4-pro"
 # `deepseek-v4-pro` is stable (it maps to itself). Keep these constants so a
 # caller pinned to an old id still resolves, but do not rely on them naming
 # distinct behaviour: as of 2026-09-10 they are all `deepseek-flash`.
+#
+# 2026-11-25 re-check: still two canonical ids; aliases unchanged. Two notes:
+#   * `/models` rows now carry metadata: `context_window` 1048576,
+#     `max_output_tokens` 393216, `effort.supported_levels` [low, high, max]
+#     (default high), and `api_capabilities.anthropic_messages`
+#     {system_prompt_update, tool_update}: flash = in-history / addition-only,
+#     v4-pro = leading-only / leading-only. Only flash lists "image".
+#   * `deepseek-chat` is not a plain alias of the default mode: it resolves to
+#     `deepseek-flash` with thinking OFF (no reasoning_content), so it accepts
+#     forcing `tool_choice` values that every thinking-mode request rejects
+#     with 400 "Thinking mode does not support this tool_choice".
+#     See HISTORY.md 2026-11-25 and doctor probe P13.
 DEEPSEEK_V4_FLASH: Final[str] = "deepseek-v4-flash"
 DEEPSEEK_REASONER: Final[str] = "deepseek-reasoner"
 DEEPSEEK_V4_FLASH_VISION_EXP: Final[str] = "deepseek-v4-flash-vision-exp"

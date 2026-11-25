@@ -20,6 +20,20 @@ throw, not fewer. The ENOSPC path this probe describes is untouched:
 `push()` at spawn.ts:134 still calls `spillAll(chunk)` bare, inside a
 stream 'data' callback.
 
+FIXED in 0.1.7-alpha.2 (2026-09-22) — independently, not after our report.
+Upstream design note `.agents/notes/implemented/architecture/
+2026-09-22-fatal-diagnostics-and-crash-reports.md` records a Windows Desktop
+Host killed by exactly this path (`openSync(..., 'wx')` → ENOENT inside the
+'data' listener, no process-level handler). `subprocess-local/src/output.ts`
+(the collector moved out of spawn.ts) now wraps open+append in one try,
+discards the spill, reports once through `SpillOptions.onFailure`, and keeps
+collecting the in-memory tail; a throwing reporter is itself contained.
+Bisected on raw `output.ts` per tag: `spill.onFailure` count is 0 through
+0.1.7-alpha.1 and 1 from 0.1.7-alpha.2 on (still 1 at 0.2.3-alpha.2).
+On a fixed harness an unwritable spill dir now costs the spill file (and the
+full-output recovery aid), not the process — so the verdict drops from fail
+to warn.
+
 Static preflight: check whether the spill directory dsh will pick is
 writable *right now*. If not, dsh will crash the first time a subprocess
 produces enough output to trigger spill.
@@ -31,6 +45,9 @@ import tempfile
 from pathlib import Path
 
 from . import Probe, Verdict
+from ._upstream import at_least, installed_version
+
+FIXED_IN = "0.1.7-alpha.2"
 
 
 def _spill_candidates() -> list[Path]:
@@ -68,14 +85,28 @@ def _writable(p: Path) -> tuple[bool, str]:
     return True, "ok"
 
 
-def _run(_ctx: dict) -> Verdict:
+def _run(ctx: dict) -> Verdict:
     cands = _spill_candidates()
     rows = [(str(p), *_writable(p)) for p in cands]
     bad = [(path, why) for path, ok, why in rows if not ok]
-    ev = {"candidates": [{"path": p, "writable": ok, "why": why} for p, ok, why in rows]}
+    version = installed_version(ctx.get("env"))
+    fixed = at_least(version, FIXED_IN)
+    ev = {"candidates": [{"path": p, "writable": ok, "why": why} for p, ok, why in rows],
+          "dsh_version": version, "fixed_in": FIXED_IN, "harness_has_fix": fixed}
 
     if not rows:
         return Verdict("warn", "no tmp dir candidates identified", evidence=ev)
+    if bad and fixed:
+        return Verdict(
+            "warn",
+            f"{len(bad)}/{len(rows)} spill candidate(s) unwritable — dsh {version} "
+            "survives it but drops the spill file",
+            detail="; ".join(f"{p}: {why}" for p, why in bad)
+                   + f". Fixed upstream in {FIXED_IN}: spill failures are contained "
+                     "and logged via onFailure; you lose full-output recovery for "
+                     "long subprocess output, not the harness.",
+            evidence=ev,
+        )
     if bad:
         return Verdict(
             "fail",
@@ -83,10 +114,18 @@ def _run(_ctx: dict) -> Verdict:
             detail="; ".join(f"{p}: {why}" for p, why in bad),
             evidence=ev,
         )
+    if fixed:
+        return Verdict(
+            "pass",
+            f"all {len(rows)} spill candidate(s) writable; dsh {version} contains spill failures",
+            detail=f"Fixed upstream in {FIXED_IN}. Probe kept for older harnesses.",
+            evidence=ev,
+        )
     return Verdict(
         "pass",
         f"all {len(rows)} spill candidate(s) writable",
-        detail="Note: this only guards against the *current* state. Container "
+        detail=f"(fixed upstream in {FIXED_IN}; harness version "
+               f"{version or 'not detected'}.) Note: this only guards against the *current* state. Container "
                "restarts, permission changes, or full disks can flip it. The "
                "underlying defect is in dsh-subprocess-local (no try/catch "
                "around openSync/writeSync in spillAll).",
@@ -96,6 +135,6 @@ def _run(_ctx: dict) -> Verdict:
 
 PROBE = Probe(
     id="P4-spill",
-    title="subprocess spill directory writable (spillAll no try/catch)",
+    title="subprocess spill directory writable (spillAll no try/catch; FIXED 0.1.7-alpha.2)",
     run=_run,
 )

@@ -22,6 +22,7 @@ import os
 from pathlib import Path
 
 from . import Probe, Verdict
+from ._zstd import decode
 
 
 _ROOTS = [
@@ -121,7 +122,7 @@ def _expand_row(obj: dict) -> list[dict]:
 def _run(_ctx: dict) -> Verdict:
     logs = _find_logs()
     ev = {"scanned": len(logs), "roots": _ROOTS,
-          "truncated": [], "corrupt": []}
+          "truncated": [], "corrupt": [], "zstd_decoded": 0, "undecodable": []}
 
     if not logs:
         return Verdict("skip", "no session logs found",
@@ -129,13 +130,20 @@ def _run(_ctx: dict) -> Verdict:
                        evidence=ev)
 
     for p in logs:
-        if str(p).endswith(".zstd"):
-            # Skip zstd for now: needs the private-format decoder.
-            continue
         try:
             buf = p.read_bytes()
         except OSError:
             continue
+        if str(p).endswith(".zstd"):
+            # Every log dsh writes since the 0.1.7 line is `session.v4.jsonl.zstd`:
+            # plain concatenated zstd frames. A torn final frame is dropped,
+            # exactly as upstream's frame scan does before the line scan.
+            dec = decode(buf)
+            if dec.data is None:
+                ev["undecodable"].append({"path": str(p), "error": dec.error})
+                continue
+            ev["zstd_decoded"] += 1
+            buf = dec.data
         res = _scan_plain_jsonl(buf)
         if res["threw"]:
             ev["corrupt"].append({"path": str(p), "events_before_error": res["events"],
@@ -166,7 +174,23 @@ def _run(_ctx: dict) -> Verdict:
                    "No user-visible error. Same root cause as the fail case.",
             evidence=ev,
         )
-    return Verdict("pass", f"scanned {len(logs)} session log(s), no seq gaps",
+    if ev["undecodable"] and len(ev["undecodable"]) == len(logs):
+        return Verdict(
+            "skip",
+            f"{len(logs)} compressed session log(s), none decodable here",
+            detail=ev["undecodable"][0]["error"],
+            evidence=ev,
+        )
+    if ev["undecodable"]:
+        return Verdict(
+            "warn",
+            f"scanned {len(logs) - len(ev['undecodable'])}/{len(logs)} session log(s); "
+            f"{len(ev['undecodable'])} could not be decoded",
+            detail=ev["undecodable"][0]["error"],
+            evidence=ev,
+        )
+    return Verdict("pass", f"scanned {len(logs)} session log(s) "
+                           f"({ev['zstd_decoded']} zstd), no seq gaps",
                    evidence=ev)
 
 

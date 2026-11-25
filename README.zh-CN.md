@@ -146,14 +146,15 @@ dsh doctor --node
 | **P1-reasoner-skip** | 做一次 A/B(裸 prompt vs 加 CoT hint),报 `deepseek-reasoner` 是否在你的 prompt 形状上跳过思考流。历史基线是裸 60% / hint 0%;V4.1 Flash 上该跳过已不可达(见 HISTORY 2026-09-10),现兼作回归探测。 |
 | **P2-bom**           | 你本地有带 UTF-8 BOM 的插件 `package.json`,`dsh plugin add` 会崩([#2798](https://github.com/deepseek-ai/deepseek-harness/discussions/2798))。离线扫。 |
 | **P3-serve**         | 你的 `dsh web` fence 在非 loopback Origin 下会**静默拒绝**数据层,页面永停在选工作区([#2573](https://github.com/deepseek-ai/deepseek-harness/discussions/2573))。 |
-| **P4-spill**         | 你的 tmp 目录不可写 —— 子进程 spill 一发就 `exit 1`(`spillAll()` 的 `openSync/writeSync` 无 try/catch)。 |
+| **P4-spill**         | 你的 tmp 目录不可写。**0.1.7-alpha.2 之前**的 harness 上,子进程一触发 spill 就 `exit 1`(`spillAll()` 的 `openSync/writeSync` 无 try/catch)。上游已在 0.1.7-alpha.2 修复,失败会被捕获并记日志;探针会读取已安装版本,在已修版本上降为 warn。 |
 | **P5-seqgap**        | 你的 session log —— 或 Agent Teams log —— 已经有 concurrent-writer seq gap([#2571](https://github.com/deepseek-ai/deepseek-harness/discussions/2571))。两种失败模式:静默截断,或下次 `turn/end` 触发永久 corrupt。 |
 | **P6-subagent-env-scrub** | 任何名字含 `KEY`/`TOKEN`/`SECRET`/`PASSWORD` 的 env 变量会被 `SENSITIVE_ENV_PATTERN` 从 Claude Code / Codex 子 agent 里静默剥掉 —— 包括 `AWS_ACCESS_KEY_ID` 这种你压根不当凭据的名字。 |
 | **P7-subagent-codex-preflight** | 你的 profile 引用了 Codex subagent provider,但 `@openai/codex` 没装 —— plugin load 时 `ERR_MODULE_NOT_FOUND`,整个 dsh 启动崩。 |
 | **P8-multimodal-preflight** | 你的 composition 用了 vision 模型,但没挂 attachment provider —— 带图 user turn 落盘一半(有图无回复)。 |
 | **P9-files-quota-scope** | 你本地 Files API upload index 有记录,而另一个用同一 API key 的 dsh 安装可以通过 `reclaimOldestOwned` 静默删掉你的 file_id —— 下次带图请求 prefix cache 全 miss。 |
 | **P10-jsonl-repair-race** | 你的会话日志带着断尾,**0.1.5 之前**的 jsonl 后端下次写打开时会直接截断,**不复查这截尾巴还是不是它扫到的那截**;在这个窗口里另一个进程追加的事件会被静默丢掉。上游已在 0.1.5-alpha.1 用跨进程 `flock(2)` 写租约(`session-persistence-jsonl/src/lease.ts`)修好;本探针现在把断尾报成「你的 harness 老了」信号,而非未修缺陷。 |
-| **P11-plugin-inventory-manifest** | 你 profile 里的 `package.json` —— dsh 自己生成的那份 —— 有 `name` 没 `version`,而默认开启的 `dsh_plugin_packages` 请求字段遇到本地插件(`name: ./plugin.js`)落到这种 manifest 时就抛。于是这个 profile 里**每一次请求**都在发 HTTP 之前以 `REQUEST_EXTENSION` 失败,而 user turn 已经落盘了。 |
+| **P11-plugin-inventory-manifest** | 你 profile 里的 `package.json` —— dsh 自己生成的那份 —— 有 `name` 没 `version`,而默认开启的 `dsh_plugin_packages` 请求字段遇到本地插件(`name: ./plugin.js`)落到这种 manifest 时就抛。于是这个 profile 里**每一次请求**都在发 HTTP 之前以 `REQUEST_EXTENSION` 失败,而 user turn 已经落盘了。上游已在 0.2.1-alpha.2 修复;在已修版本上探针报 pass,并附上修复前会给出的判定。 |
+| **P13-tool-thinking** | 实时探针。开思考时,任何强制 `tool_choice` 都返回 400,必须 `thinking: disabled` 或改用 `deepseek-chat` 别名。`deepseek-v4-pro` 关思考(即 dsh 的 `effort: off`)时,会对无关的中文提问乱调工具,如 `get_weather({"city":"17乘以23"})`;2026-11-25 采样中约 60%,开思考时为 0%。探针报告当前比率和修法。 |
 
 每一条 WARN/FAIL 都给出具体修复。这个 doctor **不是**官方运行时的竞品,是它的**证人**。
 沿用同一个 `dsh` 名字,是因为对方自己讲"一切皆插件"—— 这就是其中一个。

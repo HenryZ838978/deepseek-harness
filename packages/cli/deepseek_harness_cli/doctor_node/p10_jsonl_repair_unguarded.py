@@ -48,6 +48,7 @@ import os
 from pathlib import Path
 
 from . import Probe, Verdict
+from ._zstd import decode
 
 
 _ROOTS = [
@@ -123,12 +124,19 @@ def _run(_ctx: dict) -> Verdict:
         )
 
     for p in logs:
-        if str(p).endswith(".zstd"):
-            ev["zstd_skipped"] += 1  # needs the private-format decoder
-            continue
         try:
             buf = p.read_bytes()
         except OSError:
+            continue
+        if str(p).endswith(".zstd"):
+            # Compressed logs tear at frame granularity: an incomplete final
+            # zstd frame is the torn tail upstream's repair truncates.
+            dec = decode(buf)
+            if dec.data is None:
+                ev["zstd_skipped"] += 1
+                continue
+            if dec.torn:
+                ev["torn"].append({"path": str(p), "bytes": len(buf), "frame": dec.error})
             continue
         if _has_torn_tail(buf):
             ev["torn"].append({"path": str(p), "bytes": len(buf)})

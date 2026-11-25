@@ -1,4 +1,14 @@
-"""P11 — the default-on `dsh_plugin_packages` request field fails every model
+"""P11 — FIXED in 0.2.1-alpha.2 (2026-10-09). Release note: "修复插件包元信息
+不可读，或辅助请求扩展准备失败时，整个 DeepSeek 请求被阻断的问题". At that
+tag `identityFromManifest` returns `undefined` for a nameless manifest and
+`{ name }` for a versionless one; the `must declare non-empty name and
+version` throw is gone (bisected on raw `src/index.ts` per tag: present
+through 0.2.1-alpha.1, absent from alpha.2 to 0.2.3-alpha.2). The contributor
+is still default-on (`src/index.ts:39`). On a fixed harness a name-only
+manifest is reported as `pass` with a note; older harnesses keep the
+original fail/warn.
+
+Original finding: the default-on `dsh_plugin_packages` request field fails every model
 request when an active plugin's nearest manifest has a `name` but no
 `version` — and the manifest dsh generates for its own profiles is exactly
 that shape.
@@ -91,6 +101,7 @@ import re
 from pathlib import Path
 
 from . import Probe, Verdict
+from ._upstream import at_least, installed_version
 
 
 _INVENTORY_ID = "plugin-package-inventory-deepseek"
@@ -175,7 +186,28 @@ def _inventory_disabled(patch: Path) -> bool:
     return False
 
 
+FIXED_IN = "0.2.1-alpha.2"
+
+
 def _run(ctx: dict) -> Verdict:
+    v = _run_pre_fix(ctx)
+    version = installed_version(ctx.get("env"))
+    fixed = at_least(version, FIXED_IN)
+    v.evidence.update({"dsh_version": version, "fixed_in": FIXED_IN, "harness_has_fix": fixed})
+    if fixed and v.state in ("fail", "warn") and not any(
+            e.get("shape") == "bom" for e in v.evidence.get("rejected_entries", [])):
+        return Verdict(
+            "pass",
+            f"dsh {version} tolerates name-only manifests (fixed in {FIXED_IN}); "
+            f"pre-fix verdict would have been {v.state}: {v.summary}",
+            detail="A harness older than the fix would fail every DeepSeek request "
+                   "here. Nothing to do on this install.",
+            evidence=v.evidence,
+        )
+    return v
+
+
+def _run_pre_fix(ctx: dict) -> Verdict:
     home = _dsh_home(ctx.get("env", {}))
     profiles_dir = home / "profiles"
     ev: dict = {
@@ -306,6 +338,6 @@ def _run(ctx: dict) -> Verdict:
 PROBE = Probe(
     id="P11-plugin-inventory-manifest",
     title="default-on request inventory rejects dsh's own profile manifest "
-          "(0.1.2-rc.1)",
+          "(0.1.2-rc.1; FIXED 0.2.1-alpha.2)",
     run=_run,
 )

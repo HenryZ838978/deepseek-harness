@@ -1,5 +1,16 @@
 """P8 — llm-deepseek multimodal readiness preflight.
 
+Update 2026-11-25 (0.2.2-rc.5 / 0.2.3-alpha.2): the adapter is Messages-only
+since 0.1.7 and the throw moved to `llm-deepseek/src/images.ts:46`
+(`DeepSeek Messages image input requires a vision model and attachment
+service`, UNSUPPORTED_CONTENT), reached from `adapter.ts:95 prepareImages`.
+Ordering is unchanged: `core/agent-loop/src/agent.ts:473-482` appends the
+user message before `:496` calls `stream()`. Model modality now comes from
+the live `/models` listing (`input_modalities`): `deepseek-flash` is
+text+image, `deepseek-v4-pro` text-only. On ≥0.1.7 llm-deepseek is mounted
+by the shipped bundles, not the user profile, so its absence from the
+profile tree no longer means "not mounted".
+
 Discovery: rc.8 adds `feat(llm-deepseek): support multimodal requests`.
 Path in `packages/llm/llm-deepseek/src/adapter.ts:235-250`:
 
@@ -43,6 +54,7 @@ import re
 from pathlib import Path
 
 from . import Probe, Verdict
+from ._upstream import at_least, installed_version
 
 
 _PROFILE_ROOTS = [
@@ -83,7 +95,7 @@ def _read(path: Path) -> str:
         return ""
 
 
-def _run(_ctx: dict) -> Verdict:
+def _run(ctx: dict) -> Verdict:
     files = _iter_config_files()
     if not files:
         return Verdict(
@@ -118,6 +130,18 @@ def _run(_ctx: dict) -> Verdict:
         "input_modalities_declared": inputmodalities_seen,
     }
 
+    version = installed_version(ctx.get("env"))
+    ev["dsh_version"] = version
+    if not has_llm_deepseek and at_least(version, "0.1.7-alpha.1"):
+        return Verdict(
+            "pass",
+            f"dsh {version}: llm-deepseek is bundle-mounted; image modality comes from /models",
+            detail="Remaining hazard (open): an image turn sent to a text-only model "
+                   "(deepseek-v4-pro) throws UNSUPPORTED_CONTENT at images.ts:46 after "
+                   "agent.ts:473-482 already appended the user message — the turn is "
+                   "in history with no reply. Route image turns to deepseek-flash.",
+            evidence=ev,
+        )
     if not has_llm_deepseek:
         return Verdict(
             "skip",

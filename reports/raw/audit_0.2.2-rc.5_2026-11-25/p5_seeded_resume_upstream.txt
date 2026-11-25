@@ -1,0 +1,12 @@
+== dup
+dsh: stored session "session-ecf962d7-cd5e-48a0-aa07-ea82d24d5a53" is corrupt: session "session-ecf962d7-cd5e-48a0-aa07-ea82d24d5a53": stored log is corrupt: Error: corrupt session log: invalid committed event at line 12: released v2 row 11 has seq gap (expected 11, got 10) (raw log: /cache/dsh-lab/seed-dup/sessions/--cache-dsh-lab-ws--/session-ecf962d7-cd5e-48a0-aa07-ea82d24d5a53/session.v4.jsonl.zstd)
+
+{"type":"error","message":"stored session \"session-ecf962d7-cd5e-48a0-aa07-ea82d24d5a53\" is corrupt: session \"session-ecf962d7-cd5e-48a0-aa07-ea82d24d5a53\": stored log is corrupt: Error: corrupt session log: invalid committed event at line 12: released v2 row 11 has seq gap (expected 11, got 10) (raw log: /cache/dsh-lab/seed-dup/sessions/--cache-dsh-lab-ws--/session-ecf962d7-cd5e-48a0-aa07-ea8
+== gap
+dsh: stored session "session-ecf962d7-cd5e-48a0-aa07-ea82d24d5a53" is corrupt: session "session-ecf962d7-cd5e-48a0-aa07-ea82d24d5a53": stored log is corrupt: Error: corrupt session log: invalid committed event at line 11: released v2 row 10 has seq gap (expected 10, got 11) (raw log: /cache/dsh-lab/seed-gap/sessions/--cache-dsh-lab-ws--/session-ecf962d7-cd5e-48a0-aa07-ea82d24d5a53/session.v4.jsonl.zstd)
+
+{"type":"error","message":"stored session \"session-ecf962d7-cd5e-48a0-aa07-ea82d24d5a53\" is corrupt: session \"session-ecf962d7-cd5e-48a0-aa07-ea82d24d5a53\": stored log is corrupt: Error: corrupt session log: invalid committed event at line 11: released v2 row 10 has seq gap (expected 10, got 11) (raw log: /cache/dsh-lab/seed-gap/sessions/--cache-dsh-lab-ws--/session-ecf962d7-cd5e-48a0-aa07-ea8
+== ctrl
+[llm-deepseek-api-key] model listing from https://api.deepseek.com/models loaded 2 model(s), skipped 0 row(s)
+
+{"type":"final","sessionId":"session-ecf962d7-cd5e-48a0-aa07-ea82d24d5a53","reason":{"kind":"completed"},"text":"6"}

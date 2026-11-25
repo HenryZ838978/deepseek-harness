@@ -21,8 +21,8 @@ def _profile(home: Path, name: str, patch: str = "[]\n") -> Path:
     return pdir
 
 
-def _run(home: Path):
-    return PROBE.run({"env": {"DSH_HOME": str(home)}})
+def _run(home: Path, version: str = "0.1.5-rc.1"):
+    return PROBE.run({"env": {"DSH_HOME": str(home), "DSH_VERSION": version}})
 
 
 def test_skip_without_profiles(tmp_path: Path) -> None:
@@ -75,3 +75,16 @@ def test_home_patch_disabling_inventory_passes(tmp_path: Path) -> None:
     v = _run(tmp_path)
     assert v.state == "pass"
     assert v.evidence["inventory_disabled_in"] == [str(tmp_path / "cordis.patch.yml")]
+
+
+def test_fixed_harness_passes_on_rejected_entry(tmp_path: Path) -> None:
+    _profile(tmp_path, "default", "- insert:\n    - name: './my-plugin.js'\n")
+    v = _run(tmp_path, version="0.2.2-rc.5")
+    assert v.state == "pass"
+    assert v.evidence["harness_has_fix"] is True
+    assert "pre-fix verdict would have been fail" in v.summary
+
+
+def test_last_unfixed_tag_still_fails(tmp_path: Path) -> None:
+    _profile(tmp_path, "default", "- insert:\n    - name: './my-plugin.js'\n")
+    assert _run(tmp_path, version="0.2.1-alpha.1").state == "fail"
